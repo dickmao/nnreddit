@@ -1,0 +1,7 @@
+.cask
+*.pyc
+dist
+todo.org
+mimeapps.list
+\#*
+.\#*
