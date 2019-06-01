@@ -23,6 +23,10 @@
 
 ;;; Commentary:
 
+;; A Gnus backend for Reddit.
+
+;;; Code:
+
 ;; Gnus            Reddit
 ;; ----            ------
 ;; list            subscribed subreddits
@@ -30,8 +34,6 @@
 ;; threads         threads
 ;; root article    link or submission
 ;; articles        {root article, comments}
-
-;;; Code:
 
 ;;; set up all-things-python on `package-install', `package-install-file'
 (eval-and-compile
@@ -215,14 +217,6 @@
                        until (null name)
                        collect name
                        until (>= (cl-incf level) depth)))))
-
-(defsubst nnreddit--dig-submissions (group submissions comments)
-  (let* ((accounted-for (gnus-make-hashtable)))
-    (mapc (lambda (plst) (gnus-sethash (plist-get plst :name) t accounted-for)) submissions)
-    (seq-doseq (e comments)
-      (let ((upmost (car (nnreddit-refs-for (plist-get e :name)))))
-        (unless (gnus-gethash-safe upmost accounted-for)
-          nil)))))
 
 (defsubst nnreddit-sort-append-headers (group &rest lvp)
   (gnus-sethash group (append (nnreddit-get-headers group)
@@ -623,8 +617,12 @@
   (nnreddit--normalize-server)
   (let ((proc (get-buffer-process (get-buffer-create (format " *%s*" server)))))
     (unless proc
-      (let* ((python-shell-extra-pythonpaths
-              `(,(file-name-directory (locate-library "nnreddit"))))
+      (let* ((nnreddit-el-dir (directory-file-name (file-name-directory (locate-library "nnreddit"))))
+             (nnreddit-py-dir (directory-file-name
+                               (if (string= "lisp" (file-name-base nnreddit-el-dir))
+                                   (file-name-directory nnreddit-el-dir)
+                                 nnreddit-el-dir)))
+             (python-shell-extra-pythonpaths (list nnreddit-py-dir))
              (process-environment (python-shell-calculate-process-environment))
              (python-executable (if nnreddit-use-virtualenv
                                     (format "%snnreddit/bin/python" venv-location)
@@ -635,7 +633,8 @@
                                  :command (list python-executable "-m" python-module)
                                  :connection-type 'pipe
                                  :noquery t
-                                 :sentinel #'nnreddit-sentinel)))
+                                 :sentinel #'nnreddit-sentinel
+                                 :stderr (get-buffer-create (format " *%s-stderr*" server)))))
       (push proc *nnreddit-processes*))
     proc))
 

@@ -3,5 +3,6 @@
 dist
 todo.org
 mimeapps.list
+*autoloads.el
 \#*
 .\#*

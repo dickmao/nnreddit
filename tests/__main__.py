@@ -29,5 +29,6 @@ try:
 except OSError:
     if not os.path.isdir(logdir):
         raise
-jsonrpyc.RPC(target=AuthenticatedReddit(log_prefix=os.path.join(logdir, 'test_py.')),
+jsonrpyc.RPC(target=AuthenticatedReddit(log_prefix=os.path.join(logdir, 'test_py.'),
+                                        check_for_updates=False),
              stdin=stdin, stdout=stdout)
