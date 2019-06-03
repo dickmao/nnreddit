@@ -1,4 +1,5 @@
 (require 'ert)
+(require 'cl-lib)
 (require 'espuds)
 (require 'f)
 
@@ -12,6 +13,8 @@
   (custom-set-variables
    '(gnus-before-startup-hook (quote (toggle-debug-on-error)))
    '(nnreddit-use-virtualenv nil)
+   '(auto-revert-verbose nil)
+   '(auto-revert-stop-on-user-input nil)
    '(gnus-read-active-file nil)
    `(gnus-home-directory ,(concat root-path "/tests"))
    '(gnus-use-dribble-file nil)
@@ -34,9 +37,11 @@
  (after-scenario))
 
 (Teardown
- )
+)
 
 (Fail
  (if noninteractive
-     (after-scenario)
+     (progn
+       (after-scenario)
+       (Then "end recordings"))
    (keyboard-quit))) ;; useful to prevent emacs from quitting

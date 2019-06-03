@@ -36,7 +36,13 @@ testing = (sys.modules['__main__'].__package__ == 'tests')
 
 if testing:
     from tests.recorded import recorded
+    from tests.recorded import recording_begin
+    from tests.recorded import recording_end
 else:
+    def recording_begin(*args):
+        pass
+    def recording_end(*args):
+        pass
     def recorded(func):
         """Intercept point for Betamax"""
         @functools.wraps(func)
@@ -47,7 +53,6 @@ else:
 __version__ = '0.1.0'
 
 class AuthenticatedReddit(Reddit):
-
     @staticmethod
     def open_url_silent(url):
         stdout, stderr = os.dup(1), os.dup(2)
@@ -157,7 +162,14 @@ class AuthenticatedReddit(Reddit):
             result.append(AuthenticatedReddit.make_dict(i))
         return result
 
-    @recorded
+    def recording_begin(self, cassette):
+        recording_begin(self, cassette)
+        return True
+
+    def recording_end(self, cassette=None):
+        recording_end(cassette)
+        return True
+
     def random_subreddit(self, nsfw=False):
         sr = super(AuthenticatedReddit, self).random_subreddit(nsfw)
         return sr.display_name

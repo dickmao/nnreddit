@@ -1,0 +1,7 @@
+praw==6.2.0
+rtv==1.26.0
+jsonrpyc==1.1.0
+vcrpy==2.0.1
+betamax==0.8.1
+betamax-serializers==0.2.0
+pytest==4.5.0

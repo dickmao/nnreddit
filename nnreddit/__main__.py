@@ -16,4 +16,4 @@ stdout = sys.stdout
 if __name__ != "__main__":
      sys.stdout = sys.stderr = open(os.devnull, "w")
 
-jsonrpyc.RPC(target=AuthenticatedReddit(), stdin=stdin, stdout=stdout)
+jsonrpyc.RPC(target=AuthenticatedReddit(check_for_updates=False), stdin=stdin, stdout=stdout)

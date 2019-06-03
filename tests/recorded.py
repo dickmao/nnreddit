@@ -2,39 +2,18 @@
 
 # The following is a derivative work of
 # https://github.com/praw-dev/praw
-# whose copyright and license are copied here:
-
-# Copyright (c) 2016, Bryce Boe
-# All rights reserved.
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-
-# 1. Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# licensed under BSD 2-Clause "Simplified" License.
 
 from betamax import Betamax
 import functools
+
+__recordings__ = {}
 
 with Betamax.configure() as config:
     config.cassette_library_dir = 'tests/cassettes'
 
 def recorded(func):
-    """Intercept point for Betamax"""
+    """Intercept point for Betamax.  As a decorator for an AuthenticatedReddit method, it disallowed reentrant calls to that method under record_mode: once."""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         reddit = args[0]
@@ -47,3 +26,31 @@ def recorded(func):
         with Betamax(http).use_cassette(func.__name__):
             return func(*args, **kwargs)
     return wrapper
+
+def recording_begin(reddit, cassette):
+    if cassette in __recordings__:
+        raise RuntimeError('Recording {} already in progress!'.format(cassette))
+
+    http = reddit._core._requestor._http
+
+    # what praw does to prevent compression obscuring response bodies
+    http.headers["Accept-Encoding"] = "identity"
+
+    __recordings__[cassette] = Betamax(http).use_cassette(cassette).__enter__()
+
+def recording_end(cassette):
+    if cassette not in __recordings__:
+        raise RuntimeError('Recording {} not in progress!'.format(cassette))
+
+    __recordings__[cassette].__exit__()
+    del __recordings__[cassette]
+
+def recording_end(cassette=None):
+    if cassette and cassette not in __recordings__:
+        raise RuntimeError('Recording {} not in progress!'.format(cassette))
+
+    if not cassette:
+        [c.__exit__() for c in __recordings__.values()]
+    else:
+        __recordings__[cassette].__exit__()
+        del __recordings__[cassette]
