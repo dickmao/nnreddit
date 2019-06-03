@@ -1,3 +1,4 @@
+.ecukes*
 .cask
 *.pyc
 dist
