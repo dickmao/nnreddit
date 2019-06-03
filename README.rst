@@ -5,8 +5,8 @@
 A Gnus backend for Reddit.
 
 .. |build-status|
-   image:: https://secure.travis-ci.org/dickmao/nnreddit.png?branch=master
-   :target: http://travis-ci.org/dickmao/nnreddit
+   image:: https://travis-ci.org/dickmao/nnreddit.svg?branch=master
+   :target: https://travis-ci.org/dickmao/nnreddit
    :alt: Build Status
 .. |melpa-dev|
    image:: http://melpa.milkbox.net/packages/ein-badge.svg
