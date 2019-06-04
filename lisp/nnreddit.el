@@ -82,6 +82,13 @@
 ;; keymaps I make myself
 (defvar nnreddit-summary-mode-map (make-sparse-keymap))
 
+(defcustom nnreddit-log-rpc nil
+  "Turn on PRAW logging."
+  :type 'boolean
+  :group 'nnreddit)
+
+(defvar nnreddit-rpc-log-filename nil)
+
 (define-minor-mode nnreddit-article-mode
   "Minor mode for nnreddit articles.  Disallow `gnus-article-reply-with-original'.
 
@@ -430,6 +437,7 @@
         ;; new-unread-ranges   (0,  1,   2,  3)
         ;; new-read-ranges                        (4 - 9)
         (when (gnus-group-entry gnus-newsgroup-name)
+          ;; seen-indices are one-indexed !
           (let* ((newsrc-seen-index-now
                   (ein:aif (seq-position
                             headers
@@ -466,6 +474,10 @@
             (gnus-message 7 "nnreddit-request-group: read-ranges=%s shifted-read-ranges=%s"
                           newsrc-read-ranges newsrc-read-ranges-shifted)
             (gnus-info-set-read info newsrc-read-ranges-shifted)
+            (gnus-info-set-marks
+             info
+             (append (assq-delete-all 'seen (gnus-info-marks info))
+                     (list `(seen (1 . ,num-headers)))))
             (while (assq 'last-seen params)
               (gnus-alist-pull 'last-seen params))
             (gnus-info-set-params
@@ -627,10 +639,16 @@
              (python-executable (if nnreddit-use-virtualenv
                                     (format "%snnreddit/bin/python" venv-location)
                                   (executable-find nnreddit-python-command)))
-             (python-module (if (featurep 'test) "tests" "nnreddit")))
+             (python-module (if (featurep 'test) "tests" "nnreddit"))
+             (praw-command (list python-executable "-m" python-module)))
+        (when nnreddit-log-rpc
+          (setq nnreddit-rpc-log-filename
+                (concat (file-name-as-directory temporary-file-directory)
+                        "nnreddit-rpc-log."))
+          (setq praw-command (append praw-command (list "--log" nnreddit-rpc-log-filename))))
         (setq proc (make-process :name server
                                  :buffer (get-buffer-create (format " *%s*" server))
-                                 :command (list python-executable "-m" python-module)
+                                 :command praw-command
                                  :connection-type 'pipe
                                  :noquery t
                                  :sentinel #'nnreddit-sentinel
