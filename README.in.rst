@@ -45,5 +45,7 @@ Reply to articles with ``f`` or ``r``.
 
 Vote articles by first entering the Article buffer, then ``R -`` (down), ``R =`` (up), or ``R 0`` (retract).
 
+Gnus beginners may find the interface bewildering.  In particular, ``L`` brings subreddits with no unread articles out of hiding.
+
 .. _Cask: https://cask.readthedocs.io/en/latest/guide/installation.html
 .. _MELPA: http://melpa.org/#/

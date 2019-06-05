@@ -10,6 +10,12 @@
         (And "I execute the action chain")
         (Then (format "I should be in buffer \"*Summary nnreddit:%s*\"" group))))
 
+(When "^I clear buffer \"\\(.*\\)\"$"
+      (lambda (buffer)
+        (with-current-buffer buffer
+          (let ((inhibit-read-only t))
+            (erase-buffer)))))
+
 (When "^I dump buffer"
       (lambda () (message "%s" (buffer-string))))
 
