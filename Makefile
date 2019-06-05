@@ -30,6 +30,7 @@ clean:
 	cask clean-elc
 	python setup.py clean
 	rm -f tests/log/*
+	rm -rf tests/test-install
 
 .PHONY: test-compile
 test-compile: autoloads
@@ -39,6 +40,7 @@ test-compile: autoloads
 
 .PHONY: test-install
 test-install:
+	sh tools/package-lint.sh
 	mkdir -p tests/test-install
 	if [ ! -s "tests/test-install/$(PKBUILD).tar.gz" ] ; then \
 	  cd tests/test-install ; curl -sLOk https://github.com/melpa/package-build/archive/$(PKBUILD).tar.gz ; fi
