@@ -45,7 +45,9 @@ Reply to articles with ``f`` or ``r``.
 
 Vote articles by first entering the Article buffer, then ``R -`` (down), ``R =`` (up), or ``R 0`` (retract).
 
-Gnus beginners may find the interface bewildering.  In particular, ``L`` brings subreddits with no unread articles out of hiding.
+From the ``*Group*`` buffer, press ``g`` to refresh all subreddits.  ``M-g`` on a particular subreddit to refresh individually.
+
+Gnus beginners may find the interface bewildering.  In particular, subreddits with no unread articles do not display.  Use ``L`` to bring them out of hiding.
 
 .. _Cask: https://cask.readthedocs.io/en/latest/guide/installation.html
 .. _MELPA: http://melpa.org/#/
