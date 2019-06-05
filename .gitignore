@@ -1,5 +1,6 @@
 .ecukes*
 .cask
+.newsrc*
 *.pyc
 dist
 todo.org
