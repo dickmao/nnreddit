@@ -9,7 +9,7 @@
   "Wait until PREDICATE function returns non-`nil'.
   PREDARGS is argument list for the PREDICATE function.
   MS is milliseconds to wait.  INTERVAL is polling interval in milliseconds."
-  (let* ((int (ein:aif interval it (ein:aif ms (max 300 (/ ms 10)) 300)))
+  (let* ((int (nnreddit-aif interval it (nnreddit-aif ms (max 300 (/ ms 10)) 300)))
          (count (max 1 (if ms (truncate (/ ms int)) 25))))
     (unless (or (cl-loop repeat count
                          when (apply predicate predargs)
