@@ -38,18 +38,11 @@ def recording_begin(reddit, cassette):
 
     __recordings__[cassette] = Betamax(http).use_cassette(cassette).__enter__()
 
-def recording_end(cassette):
-    if cassette not in __recordings__:
-        raise RuntimeError('Recording {} not in progress!'.format(cassette))
-
-    __recordings__[cassette].__exit__()
-    del __recordings__[cassette]
-
 def recording_end(cassette=None):
     if cassette and cassette not in __recordings__:
         raise RuntimeError('Recording {} not in progress!'.format(cassette))
 
-    if not cassette:
+    if cassette is None:
         [c.__exit__() for c in __recordings__.values()]
     else:
         __recordings__[cassette].__exit__()

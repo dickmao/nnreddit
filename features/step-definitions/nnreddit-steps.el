@@ -19,12 +19,19 @@
 (When "^I dump buffer"
       (lambda () (message "%s" (buffer-string))))
 
-(When "^gnus$"
+(When "^gnus start$"
       (lambda ()
         (ein:aif (get-buffer gnus-group-buffer)
             (switch-to-buffer it)
           (When "I call \"gnus\"")
           (Then "I should be in buffer \"%s\"" gnus-group-buffer))))
+
+(When "^gnus stop$"
+      (lambda ()
+        (ein:aif (get-buffer gnus-group-buffer)
+            (progn (switch-to-buffer it)
+                   (And "I press \"q\"")
+                   (switch-to-buffer "*scratch*")))))
 
 (When "^begin recording \"\\(.+\\)\"$"
       (lambda (cassette)

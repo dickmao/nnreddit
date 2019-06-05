@@ -1,20 +1,20 @@
 @refresh_token
 Scenario: Do not know how to betamax initial oauth handshake
   When begin recording "refresh_token"
-  Given gnus
+  Given gnus start
   Then end recording "refresh_token"
 
 @random
 Scenario: random subreddit
   When begin recording "random"
-  Given gnus
+  Given gnus start
   And rpc "random_subreddit" returns "wholesomegifs"
   Then end recording "random"
 
 @subscribe
 Scenario: subscribe and unsubscribe
   When begin recording "subscribe"
-  Given gnus
+  Given gnus start
   And I goto group "chvrches"
   And I press "q"
   Then I should be in buffer "*Group*"
@@ -31,8 +31,9 @@ Scenario: subscribe and unsubscribe
 
 @scan
 Scenario: scanning doesn't reuse, selecting reuses, selecting again scans.
+  Given gnus stop
   When begin recording "scan"
-  Given gnus
+  Given gnus start
   And I go to word "emacs"
   And I press "M-g"
   And I switch to buffer "*Messages*"
