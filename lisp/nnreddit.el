@@ -650,7 +650,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                   (car (process-command process))
                   (replace-regexp-in-string "\n$" "" event))
     (setq *nnreddit-headers-hashtb* (gnus-make-hashtable))
-    (setq *nnreddit-scanned-hashtb* (gnus-make-hashtable))))
+    (nnreddit-clear-scanned)))
 
 (defun nnreddit-rpc-get (&optional server)
   "Retrieve the PRAW process for SERVER."
@@ -785,9 +785,27 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
   (setq gnus-group-change-level-function 'nnreddit-update-subscription)
   (nnreddit-group-mode))
 
+(defun nnreddit-clear-scanned (&optional group)
+  (if group
+      (when (gnus-gethash-safe group *nnreddit-scanned-hashtb*)
+        ;; avoid littering hashtb if GROUP is mispelled
+        (gnus-sethash group nil *nnreddit-scanned-hashtb*))
+    (setq *nnreddit-scanned-hashtb* (gnus-make-hashtable))))
+
+;; I believe I did try buffer-localizing hooks, and it wasn't sufficient
 (add-hook 'gnus-article-mode-hook 'nnreddit-article-mode-activate)
 (add-hook 'gnus-group-mode-hook 'nnreddit-group-mode-activate)
 (add-hook 'gnus-summary-mode-hook 'nnreddit-summary-mode-activate)
+(add-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)
+
+;; Without this, gnus-group-get-new-news-this-group (M-g)
+;; will wastefully cause an un-M-g'ed group to rescan.
+(add-function
+ :around (symbol-function 'gnus-group-get-new-news-this-group)
+ (lambda (f &rest args)
+   (remove-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)
+   (apply f args)
+   (add-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)))
 
 ;; `gnus-newsgroup-p' requires valid method post-mail to return t
 (add-to-list 'gnus-valid-select-methods '("nnreddit" post-mail) t)
