@@ -71,6 +71,8 @@
 (require 'gnus-msg)
 (require 'gnus-cite)
 (require 'gnus-srvr)
+(require 'gnus-cache)
+(require 'gnus-bcklg)
 (require 'python)
 (require 'json-rpc)
 (require 'mm-url)
@@ -214,10 +216,10 @@
 (defun nnreddit-find-header (group id)
   "O(n) search of headers for ID"
   (nnreddit-and-let* ((headers (nnreddit-get-headers group))
-                 (found (seq-position headers id
-                                      (lambda (plst id)
-                                        (equal id (plist-get plst :id))))))
-    (nnreddit--get-header (1+ found) group)))
+                      (found (seq-position headers id
+                                           (lambda (plst id)
+                                             (equal id (plist-get plst :id))))))
+                     (nnreddit--get-header (1+ found) group)))
 
 (defsubst nnreddit-refs-for (name &optional depth)
   (unless depth
@@ -650,7 +652,8 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                   (car (process-command process))
                   (replace-regexp-in-string "\n$" "" event))
     (setq *nnreddit-headers-hashtb* (gnus-make-hashtable))
-    (nnreddit-clear-scanned)))
+    (nnreddit-clear-scanned)
+    (gnus-backlog-shutdown)))
 
 (defun nnreddit-rpc-get (&optional server)
   "Retrieve the PRAW process for SERVER."
@@ -858,6 +861,13 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
  (lambda (&rest args)
    (when (eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
      (concat (nnreddit-rpc-call nil nil "user_attr" "name") "@reddit.com"))))
+
+;; disallow caching as the article numbering is wont to change
+;; after PRAW restarts!
+(setq gnus-uncacheable-groups
+      (nnreddit-aif gnus-uncacheable-groups
+          (format "\\(%s\\)\\|\\(^nnreddit\\)" it)
+        "^nnreddit"))
 
 (provide 'nnreddit)
 

@@ -69,7 +69,7 @@ test-install:
 
 .PHONY: test-unit
 test-unit:
-	cask exec ert-runner -L . -L test tests/test*.el
+	cask exec ert-runner -L . -L tests tests/test*.el
 
 .PHONY: test
 test: test-compile test-unit test-int
