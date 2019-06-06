@@ -630,7 +630,9 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
       (mapc (lambda (realname)
               (let ((group (gnus-group-full-name realname '("nnreddit" (or server "")))))
                 (erase-buffer)
+                (gnus-message 5 "nnreddit-request-list: scanning %s..." realname)
                 (gnus-activate-group group)
+                (gnus-message 5 "nnreddit-request-list: scanning %s...done" realname)
                 (gnus-sethash realname (buffer-string) *nnreddit-scanned-hashtb*)
                 (gnus-group-unsubscribe-group group gnus-level-default-subscribed t)))
             groups)
@@ -767,12 +769,14 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 (defun nnreddit-article-mode-activate ()
   "Augment the gnus-article-mode-map conditionally."
   (when (and (stringp gnus-newsgroup-name)
+             (listp (gnus-group-method gnus-newsgroup-name))
              (eq 'nnreddit (car (gnus-group-method gnus-newsgroup-name))))
     (nnreddit-article-mode)))
 
 (defun nnreddit-summary-mode-activate ()
   "Shadow some bindings in gnus-summary-mode-map conditionally."
   (when (and (stringp gnus-newsgroup-name)
+             (listp (gnus-group-method gnus-newsgroup-name))
              (eq 'nnreddit (car (gnus-group-method gnus-newsgroup-name))))
     (nnreddit-summary-mode)))
 
