@@ -4,6 +4,7 @@
 
 (require 'nnreddit)
 (require 'cl-lib)
+(require 'ert)
 
 (defun test-wait-for (predicate &optional predargs ms interval continue)
   "Wait until PREDICATE function returns non-`nil'.
