@@ -1,13 +1,10 @@
-;;; nnreddit.el --- Gnus backend for reddit
+;;; nnreddit.el --- gnus backend for reddit
 
 ;; Copyright (C) 2016-2019 Free Software Foundation, Inc.
 
 ;; Authors: Paul Issartel <paul.issartel@u-psud.fr>
 ;;          dickmao <github id: dickmao>
-;; Version: 0
-;; Keywords: news
-;; URL: https://github.com/dickmao/nnreddit
-;; Package-Requires: ((emacs "25"))
+;; Keywords: gnus, reddit
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -150,7 +147,7 @@
 
 (defvar seq-map-indexed-f (if (fboundp 'seq-map-indexed)
                               #'seq-map-indexed
-                            (lambda (function sequence)
+                            (lambda (function sequence) 
                               (let ((index 0))
                                 (seq-map (lambda (elt)
                                            (prog1
@@ -167,20 +164,20 @@
     (unless (string= server canonical)
       (error "nnreddit--normalize-server: multiple servers unsupported!"))))
 
-(defmacro nnreddit-aif (test-form then-form &rest else-forms)
+(defmacro ein:aif (test-form then-form &rest else-forms)
   "Anaphoric IF.  Adapted from `e2wm:aif'."
   (declare (debug (form form &rest form)))
   `(let ((it ,test-form))
      (if it ,then-form ,@else-forms)))
-(put 'nnreddit-aif 'lisp-indent-function 2)
+(put 'ein:aif 'lisp-indent-function 2)
 
-(defmacro nnreddit-aand (test &rest rest)
+(defmacro ein:aand (test &rest rest)
   "Anaphoric AND.  Adapted from `e2wm:aand'."
   (declare (debug (form &rest form)))
   `(let ((it ,test))
-     (if it ,(if rest (macroexpand-all `(nnreddit-aand ,@rest)) 'it))))
+     (if it ,(if rest (macroexpand-all `(ein:aand ,@rest)) 'it))))
 
-(defmacro nnreddit-and-let* (bindings &rest form)
+(defmacro ein:and-let* (bindings &rest form)
   "Gauche's `and-let*'."
   (declare (debug ((&rest &or symbolp (form) (gate symbolp &optional form))
                    body))
@@ -190,7 +187,7 @@
       `(progn ,@form)
     (let* ((head (car bindings))
            (tail (cdr bindings))
-           (rest (macroexpand-all `(nnreddit-and-let* ,tail ,@form))))
+           (rest (macroexpand-all `(ein:and-let* ,tail ,@form))))
       (cond
        ((symbolp head) `(if ,head ,rest))
        ((= (length head) 1) `(if ,(car head) ,rest))
@@ -213,7 +210,7 @@
 
 (defun nnreddit-find-header (group id)
   "O(n) search of headers for ID"
-  (nnreddit-and-let* ((headers (nnreddit-get-headers group))
+  (ein:and-let* ((headers (nnreddit-get-headers group))
                  (found (seq-position headers id
                                       (lambda (plst id)
                                         (equal id (plist-get plst :id))))))
@@ -414,7 +411,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
   (nnreddit--normalize-server)
   ;; (nnreddit-close-server server)
   (nnreddit--with-group group
-    (nnreddit-aif (gnus-gethash-safe group *nnreddit-scanned-hashtb*)
+    (ein:aif (gnus-gethash-safe group *nnreddit-scanned-hashtb*)
         (progn
           (gnus-message 7 "nnreddit-request-group: reuse %s" it)
           (nnheader-insert "%s" it)
@@ -462,7 +459,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
           (when (gnus-group-entry gnus-newsgroup-name)
             ;; seen-indices are one-indexed !
             (let* ((newsrc-seen-index-now
-                    (nnreddit-aif (seq-position
+                    (ein:aif (seq-position
                               headers
                               newsrc-seen-id
                               (lambda (plst newsrc-seen-id)
@@ -471,12 +468,12 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                                         (nnreddit--base10 newsrc-seen-id)))))
                         (1+ it) 0))
                    (updated-seen-index (- num-headers
-                                          (nnreddit-aif
+                                          (ein:aif
                                               (seq-position (reverse headers) nil
                                                             (lambda (plst _e)
                                                               (not (plist-get plst :title))))
                                               it -1)))
-                   (updated-seen-id (nnreddit-aif (nth (1- updated-seen-index) headers)
+                   (updated-seen-id (ein:aif (nth (1- updated-seen-index) headers)
                                         (plist-get it :id) ""))
                    (delta (if newsrc-seen-index
                               (max 0 (- newsrc-seen-index newsrc-seen-index-now))
@@ -558,7 +555,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
            "Content-Type: text/html; charset=utf-8" "\n"
            "Score: " score "\n"
            "\n")
-          (nnreddit-and-let* ((parent-name (plist-get header :parent_id)) ;; parent-id is full
+          (ein:and-let* ((parent-name (plist-get header :parent_id)) ;; parent-id is full
                          (parent-author (or (gnus-gethash-safe parent-name
                                                                *nnreddit-authors-hashtb*)
                                             "Someone"))
@@ -588,7 +585,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                                         (if (< i (length v)) (aref v i)))
                                       lvp indices)))
              (list (cdr earliest)
-                   (nnreddit-aif next-earliest
+                   (ein:aif next-earliest
                        (plist-get (car it) :created_utc))))
       (cond ((null earliest)
              (setq earliest plst-idx))
@@ -637,7 +634,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                 (gnus-group-unsubscribe-group group gnus-level-default-subscribed t)))
             groups)
       (erase-buffer)
-      (mapc (lambda (group)
+      (mapc (lambda (group) 
               (insert (format "%s %d 1 y\n" group
                               (length (nnreddit-get-headers group)))))
             groups)))
@@ -842,5 +839,3 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
      (concat (nnreddit-rpc-call nil nil "user_attr" "name") "@reddit.com"))))
 
 (provide 'nnreddit)
-
-;;; nnreddit.el ends here

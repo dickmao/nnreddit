@@ -21,14 +21,14 @@
 
 (When "^gnus start$"
       (lambda ()
-        (nnreddit-aif (get-buffer gnus-group-buffer)
+        (ein:aif (get-buffer gnus-group-buffer)
             (switch-to-buffer it)
           (When "I call \"gnus\"")
           (Then "I should be in buffer \"%s\"" gnus-group-buffer))))
 
 (When "^gnus stop$"
       (lambda ()
-        (nnreddit-aif (get-buffer gnus-group-buffer)
+        (ein:aif (get-buffer gnus-group-buffer)
             (progn (switch-to-buffer it)
                    (And "I press \"q\"")
                    (switch-to-buffer "*scratch*")))))
@@ -51,7 +51,7 @@
                                relative-prefix))
                (dir (file-name-directory prefix))
                (base (file-name-base prefix)))
-          (nnreddit-aif (seq-some (lambda (b)
+          (ein:aif (seq-some (lambda (b)
                                (when (cl-search base (buffer-name b)) b))
                              (buffer-list))
               (progn
