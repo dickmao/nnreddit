@@ -5,12 +5,44 @@
 # licensed under BSD 2-Clause "Simplified" License.
 
 from betamax import Betamax
+from betamax.cassette.cassette import Placeholder
 import functools
+import json
+import logging
+from six.moves.urllib.parse import parse_qs
 
 __recordings__ = {}
 
+def scrub(interaction, current_cassette):
+    request = interaction.data.get('request') or {}
+    response = interaction.data.get('response') or {}
+
+    # Exit early if the request did not return 200 OK because that's the
+    # only time we want to look for tokens
+    if not response or response['status']['code'] != 200:
+        return
+
+    for what in [r for r in [request, response] if r]:
+        auths = what['headers'].get('Authorization') or []
+        for auth in auths:
+            current_cassette.placeholders.append(
+                Placeholder(placeholder='**********', replace=auth)
+            )
+
+        body_string = what['body']['string']
+        try:
+            dikt = json.loads(body_string)
+        except:
+            dikt = { k: v[0] for k,v in parse_qs(body_string).items() }
+        for token in ['access_token', 'refresh_token']:
+            if token in dikt:
+                current_cassette.placeholders.append(
+                    Placeholder(placeholder='**********', replace=dikt[token])
+                )
+
 with Betamax.configure() as config:
     config.cassette_library_dir = 'tests/cassettes'
+    config.before_record(callback=scrub)
 
 def recorded(func):
     """Intercept point for Betamax.  As a decorator for an AuthenticatedReddit method, it disallowed reentrant calls to that method under record_mode: once."""

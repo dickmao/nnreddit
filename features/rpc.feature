@@ -8,7 +8,7 @@ Scenario: Do not know how to betamax initial oauth handshake
 Scenario: random subreddit
   When begin recording "random"
   Given gnus start
-  And rpc "random_subreddit" returns "wholesomegifs"
+  And rpc "random_subreddit" returns "preppers"
   Then end recording "random"
 
 @subscribe
