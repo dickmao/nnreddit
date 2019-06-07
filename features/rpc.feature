@@ -68,4 +68,10 @@ Scenario: message-send-and-exit
   And I press "a"
   And I press "t"
   And I execute the action chain
+  Then I should be in buffer "*unsent posting on PostPreview*"
+  And I type "test baby test baby 123"
+  And I press "M->"
+  And I type "this is a test"
+  And I press "C-c C-c"
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
   Then end recording "post"
