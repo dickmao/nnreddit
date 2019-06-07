@@ -42,8 +42,10 @@ for name in ['vcr.matchers', 'vcr.stubs']:
     logging.getLogger(name).disabled = True
 
 def pytest_addoption(parser):
+    super_secret = os.path.join(os.path.dirname(TOKEN), 'super-secret-refresh-token')
     parser.addoption('--record-mode', dest='record_mode', default='none')
-    parser.addoption('--token-file', dest='token_file', default=TOKEN)
+    parser.addoption('--token-file', dest='token_file',
+                     default=(super_secret if os.path.exists(super_secret) else TOKEN))
 
 @pytest.fixture(scope='session')
 def vcr(request):

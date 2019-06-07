@@ -57,3 +57,15 @@ Scenario: scanning doesn't reuse, selecting reuses, selecting again scans.
   And I switch to buffer "*Messages*"
   And I should not see pattern "nnreddit-request-group: reuse.+orgmode"
   Then end recording "scan"
+
+@post
+Scenario: message-send-and-exit
+  When begin recording "post"
+  Given gnus start
+  And I go to word "PostPreview"
+  And I press "RET"
+  And I start an action chain
+  And I press "a"
+  And I press "t"
+  And I execute the action chain
+  Then end recording "post"

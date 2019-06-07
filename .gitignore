@@ -1,3 +1,4 @@
+super-secret-refresh-token
 .ecukes*
 .cask
 .newsrc*
@@ -6,5 +7,6 @@ dist
 todo.org
 mimeapps.list
 *autoloads.el
+super-secret-refresh-token
 \#*
 .\#*
