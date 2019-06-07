@@ -64,10 +64,8 @@ Scenario: message-send-and-exit
   Given gnus start
   And I go to word "PostPreview"
   And I press "RET"
-  And I start an action chain
-  And I press "a"
-  And I press "t"
-  And I execute the action chain
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
+  And emacs26 cannot do action chain "a t"
   Then I should be in buffer "*unsent posting on PostPreview*"
   And I type "test baby test baby 123"
   And I press "M->"
