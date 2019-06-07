@@ -8,7 +8,7 @@ Scenario: Do not know how to betamax initial oauth handshake
 Scenario: random subreddit
   When begin recording "random"
   Given gnus start
-  And rpc "random_subreddit" returns "wholesomegifs"
+  And rpc "random_subreddit" returns "preppers"
   Then end recording "random"
 
 @subscribe
@@ -57,3 +57,19 @@ Scenario: scanning doesn't reuse, selecting reuses, selecting again scans.
   And I switch to buffer "*Messages*"
   And I should not see pattern "nnreddit-request-group: reuse.+orgmode"
   Then end recording "scan"
+
+@post
+Scenario: message-send-and-exit
+  When begin recording "post"
+  Given gnus start
+  And I go to word "PostPreview"
+  And I press "RET"
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
+  And emacs26 cannot do action chain "a t"
+  Then I should be in buffer "*unsent posting on PostPreview*"
+  And I type "test baby test baby 123"
+  And I press "M->"
+  And I type "this is a test"
+  And I press "C-c C-c"
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
+  Then end recording "post"

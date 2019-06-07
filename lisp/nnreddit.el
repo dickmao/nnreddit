@@ -78,6 +78,8 @@
 (require 'mm-url)
 (require 'cl-lib)
 
+(defalias 'caddr #'cl-caddr "message.el uses caddr, and I'm not allowed to require 'cl")
+
 (nnoo-declare nnreddit)
 
 ;; keymaps made by `define-prefix-command' in `gnus-define-keys-1'
@@ -824,8 +826,8 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
          (progn
            (when link-p
              (add-function :before-until (symbol-function 'y-or-n-p) dont-ask))
-           (apply f args)
-           (remove-function (symbol-function 'y-or-n-p) dont-ask))
+           (prog1 (apply f args)
+             (remove-function (symbol-function 'y-or-n-p) dont-ask)))
        (error (remove-function (symbol-function 'y-or-n-p) dont-ask)
               (error (error-message-string err)))))))
 

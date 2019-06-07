@@ -44,4 +44,5 @@
      (progn
        (after-scenario)
        (Then "end recordings"))
+   (backtrace)
    (keyboard-quit))) ;; useful to prevent emacs from quitting

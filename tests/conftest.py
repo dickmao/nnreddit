@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import os
 import logging
+import json
 from functools import partial
 
 import pytest
@@ -41,8 +42,10 @@ for name in ['vcr.matchers', 'vcr.stubs']:
     logging.getLogger(name).disabled = True
 
 def pytest_addoption(parser):
+    super_secret = os.path.join(os.path.dirname(TOKEN), 'super-secret-refresh-token')
     parser.addoption('--record-mode', dest='record_mode', default='none')
-    parser.addoption('--token-file', dest='token_file', default=TOKEN)
+    parser.addoption('--token-file', dest='token_file',
+                     default=(super_secret if os.path.exists(super_secret) else TOKEN))
 
 @pytest.fixture(scope='session')
 def vcr(request):
@@ -65,6 +68,15 @@ def vcr(request):
     if not os.path.exists(cassette_dir):
         os.makedirs(cassette_dir)
 
+    def scrub(tokens, replacement=''):
+        def before_record_response(response):
+            dikt = json.loads(response['body']['string'])
+            for token in tokens:
+                dikt[token] = replacement
+            response['body']['string'] = json.dumps(dikt)
+            return response
+        return before_record_response
+
     # https://github.com/kevin1024/vcrpy/pull/196
     vcr = VCR(
         record_mode=request.config.option.record_mode,
@@ -72,6 +84,7 @@ def vcr(request):
         filter_post_data_parameters=[('refresh_token', '**********'),
                                      ('code', '**********')],
         match_on=['method', 'uri_with_query', 'auth', 'body'],
+        before_record_response=scrub(['access_token', 'refresh_token'], '**********'),
         cassette_library_dir=cassette_dir)
     vcr.register_matcher('auth', auth_matcher)
     vcr.register_matcher('uri_with_query', uri_with_query_matcher)

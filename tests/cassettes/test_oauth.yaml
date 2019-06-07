@@ -1,26 +1,5 @@
 interactions:
 - request:
-    body: !!python/unicode '{"platform": "Linux-4.15.0-50-generic-x86_64-with-Ubuntu-16.04-xenial",
-      "package_version": "6.2.0", "python_version": "2.7.12", "package_name": "praw"}'
-    headers:
-      Accept: ['*/*']
-      Accept-Encoding: ['gzip, deflate']
-      Content-Length: ['151']
-      User-Agent: [python-requests/2.22.0]
-      connection: [close]
-      content-type: [application/json]
-    method: PUT
-    uri: http://updatechecker.bryceboe.com/check
-  response:
-    body: {string: !!python/unicode "{\n  \"success\": false\n}\n"}
-    headers:
-      connection: [close]
-      content-length: ['23']
-      content-type: [application/json]
-      date: ['Sat, 01 Jun 2019 21:06:58 GMT']
-      server: [nginx/1.12.2]
-    status: {code: 200, message: OK}
-- request:
     body: !!python/unicode code=**********&grant_type=authorization_code&redirect_uri=http%3A%2F%2F127.0.0.1%3A17973
     headers:
       Accept: ['*/*']
@@ -33,19 +12,19 @@ interactions:
     method: POST
     uri: https://www.reddit.com/api/v1/access_token
   response:
-    body: {string: !!python/unicode '{"access_token": "301734740635-MBb1HA6rwsLJk00is2BqFw7SC38",
-        "token_type": "bearer", "expires_in": 3600, "refresh_token": "301734740635-c8EaXCySQ0eG4eh1V9LlCh6T11k",
-        "scope": "edit history identity mysubreddits privatemessages read report save
-        submit subscribe vote"}'}
+    body: {string: !!python/unicode '{"access_token": "**********", "token_type":
+        "bearer", "expires_in": 3600, "refresh_token": "**********", "scope": "edit
+        history identity mysubreddits privatemessages read report save submit subscribe
+        vote"}'}
     headers:
       accept-ranges: [bytes]
       cache-control: ['max-age=0, must-revalidate']
       connection: [keep-alive]
       content-length: ['267']
       content-type: [application/json; charset=UTF-8]
-      date: ['Sat, 01 Jun 2019 21:07:05 GMT']
+      date: ['Fri, 07 Jun 2019 04:38:25 GMT']
       server: [snooserv]
-      set-cookie: [edgebucket=ia3ETkla9YqgD41KEJ; Domain=reddit.com; Max-Age=63071999;
+      set-cookie: [edgebucket=y1FPYeim4TI9gnt5xY; Domain=reddit.com; Max-Age=63071999;
           Path=/;  secure]
       strict-transport-security: [max-age=15552000; includeSubDomains; preload]
       via: [1.1 varnish]
@@ -54,8 +33,8 @@ interactions:
       x-content-type-options: [nosniff]
       x-frame-options: [SAMEORIGIN]
       x-moose: [majestic]
-      x-served-by: [cache-ewr18137-EWR]
-      x-timer: ['S1559423225.255037,VS0,VE70']
+      x-served-by: [cache-ewr18125-EWR]
+      x-timer: ['S1559882305.241736,VS0,VE62']
       x-xss-protection: [1; mode=block]
     status: {code: 200, message: OK}
 version: 1

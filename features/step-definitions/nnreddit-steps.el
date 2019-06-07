@@ -79,3 +79,12 @@
              (revert-buffer :ignore-auto :noconfirm)
              (if negate (not says) says)))
          nil 40000 2000)))
+
+(When "^emacs26 cannot do action chain \"\\(.+\\)\"$"
+      (lambda (keys)
+        (let ((vkeys (seq-concatenate 'vector
+                                      (mapcar #'string-to-char (split-string keys)))))
+          (condition-case err
+              (execute-kbd-macro vkeys)
+            (error (message "emacs26 cannot do action chain: %s"
+                            (error-message-string err)))))))
