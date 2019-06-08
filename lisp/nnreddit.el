@@ -1,4 +1,4 @@
-;;; nnreddit.el --- Gnus backend for reddit
+;;; nnreddit.el --- Gnus backend for reddit  -*- lexical-binding: t; coding: utf-8 -*-
 
 ;; Copyright (C) 2016-2019 Free Software Foundation, Inc.
 
@@ -22,7 +22,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with nnreddit.el.  If not, see <http://www.gnu.org/licenses/>.
+;; along with nnreddit.el.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -152,15 +152,16 @@
   (interactive)
   (nnreddit-vote-current-article 1))
 
-(defvar seq-map-indexed-f (if (fboundp 'seq-map-indexed)
-                              #'seq-map-indexed
-                            (lambda (function sequence)
-                              (let ((index 0))
-                                (seq-map (lambda (elt)
-                                           (prog1
-                                               (funcall function elt index)
-                                             (setq index (1+ index))))
-                                         sequence)))))
+(defvar nnreddit--seq-map-indexed
+  (if (fboundp 'seq-map-indexed)
+      #'seq-map-indexed
+    (lambda (function sequence)
+      (let ((index 0))
+        (seq-map (lambda (elt)
+                   (prog1
+                       (funcall function elt index)
+                     (setq index (1+ index))))
+                 sequence)))))
 
 (defmacro nnreddit--normalize-server ()
   `(let ((canonical "nnreddit-default"))
@@ -240,16 +241,6 @@
                               (apply #'nnreddit--sort-headers lvp))
                 *nnreddit-headers-hashtb*))
 
-(defsubst gnus-hash-keys (hashtb)
-  (let (lst)
-    (mapatoms (lambda (e) (setq lst (nconc lst (list e)))) hashtb)
-    lst))
-
-(defsubst gnus-hash-values (hashtb)
-  (let (lst)
-    (mapatoms (lambda (e) (setq lst (nconc lst (list (symbol-value e))))) hashtb)
-    lst))
-
 (defvar *nnreddit-directory* (nnheader-concat gnus-directory "reddit")
   "Where to retrieve last read state.")
 
@@ -297,7 +288,7 @@
       (nnheader-replace-header "score" new-score))
     (nnreddit-rpc-call nil nil "vote" article-name vote)))
 
-(defun nnreddit-update-subscription (group level oldlevel &optional previous)
+(defun nnreddit-update-subscription (group level oldlevel &optional _previous)
   "nnreddit `gnus-group-change-level' callback"
   (let ((old-subbed-p (<= oldlevel gnus-level-default-subscribed))
         (new-subbed-p (<= level gnus-level-default-subscribed)))
@@ -321,7 +312,7 @@
   (nnreddit-close-server)
   t)
 
-(deffoo nnreddit-request-type (group &optional article)
+(deffoo nnreddit-request-type (_group &optional _article)
   'news)
 
 (deffoo nnreddit-server-opened (&optional server)
@@ -333,10 +324,10 @@
   (nnreddit--normalize-server)
   "")
 
-(deffoo nnreddit-open-server (server &optional defs)
+(deffoo nnreddit-open-server (_server &optional _defs)
   t)
 
-(deffoo nnreddit-close-group (group &optional server)
+(deffoo nnreddit-close-group (_group &optional server)
   (nnreddit--normalize-server)
   t)
 
@@ -382,31 +373,31 @@
   (gnus-sethash (plist-get e :name) (plist-get e field) hashtb))
 
 (defun nnreddit--filter-after (after-this vop) ;; vector of plists
-  (cl-loop for elt-idx in (funcall seq-map-indexed-f (lambda (elt idx) (cons elt idx)) vop)
+  (cl-loop for elt-idx in (funcall nnreddit--seq-map-indexed
+                                   (lambda (elt idx) (cons elt idx)) vop)
            until (>= (plist-get (car elt-idx) :created_utc) after-this)
            finally return (seq-drop vop (or (cdr elt-idx) 0))))
 
 (defsubst nnreddit--base10 (base36)
-  (apply #'+ (funcall seq-map-indexed-f
+  (apply #'+ (funcall nnreddit--seq-map-indexed
                       (lambda (elt idx)
                         (* (expt 36 idx)
                            (if (>= elt ?a) (+ 10 (- elt ?a)) (- elt ?0))))
                       (reverse base36))))
 
-(deffoo nnreddit-request-group-scan (group &optional server info)
+(deffoo nnreddit-request-group-scan (group &optional server _info)
   "M-g from *Group* calls this.
 
 Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet again."
   (nnreddit--normalize-server)
   (nnreddit--with-group group
-    (let ((realname (gnus-group-real-name gnus-newsgroup-name)))
-      (gnus-sethash group nil *nnreddit-scanned-hashtb*)
-      (gnus-message 5 "nnreddit-request-group-scan: scanning %s..." group)
-      (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))))
-      (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
-      (with-current-buffer nntp-server-buffer
-        (gnus-sethash group (buffer-string) *nnreddit-scanned-hashtb*))
-      t)))
+    (gnus-sethash group nil *nnreddit-scanned-hashtb*)
+    (gnus-message 5 "nnreddit-request-group-scan: scanning %s..." group)
+    (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))))
+    (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
+    (with-current-buffer nntp-server-buffer
+      (gnus-sethash group (buffer-string) *nnreddit-scanned-hashtb*))
+    t))
 
 ;; gnus-group-select-group
 ;;   gnus-group-read-group
@@ -417,7 +408,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 ;;         gnus-select-newsgroup
 ;;           gnus-request-group
 ;;             nnreddit-request-group
-(deffoo nnreddit-request-group (group &optional server fast info)
+(deffoo nnreddit-request-group (group &optional server _fast info)
   (nnreddit--normalize-server)
   ;; (nnreddit-close-server server)
   (nnreddit--with-group group
@@ -574,7 +565,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
           (insert (nnreddit--br-tagify body))
           (cons group article-number))))))
 
-(deffoo nnreddit-retrieve-headers (article-numbers &optional group server fetch-old)
+(deffoo nnreddit-retrieve-headers (article-numbers &optional group server _fetch-old)
   (nnreddit--normalize-server)
   (nnreddit--with-group group
     (with-current-buffer nntp-server-buffer
@@ -588,7 +579,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
   (let (earliest next-earliest)
     (dolist (plst-idx
              (cl-remove-if-not #'car
-                            (funcall seq-map-indexed-f
+                            (funcall nnreddit--seq-map-indexed
                                      (lambda (plst idx) (cons plst idx))
                                      (seq-mapn
                                       (lambda (v i)
@@ -652,7 +643,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 
 (defun nnreddit-sentinel (process event)
   "Wipe headers state when PROCESS dies."
-  (when (not (string= "open" (substring event 0 4)))
+  (unless (string= "open" (substring event 0 4))
     (gnus-message 2 "nnreddit-sentinel: process %s %s"
                   (car (process-command process))
                   (replace-regexp-in-string "\n$" "" event))
@@ -838,7 +829,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
  :around (symbol-function 'gnus-summary-post-news)
  (lambda (f &rest args)
    (let* ((nnreddit-post-type (read-char-choice "[l]ink / [t]ext: " '(?l ?t)))
-          (link-header (apply-partially #'message-add-header "Link: http://"))
+          (link-header (apply-partially #'message-add-header "Link: https://"))
           (add-link-header (apply-partially #'add-hook
                                             'message-header-setup-hook
                                             link-header))
@@ -863,7 +854,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 
 (add-function
  :before-until (symbol-function 'message-make-from)
- (lambda (&rest args)
+ (lambda (&rest _args)
    (when (eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
      (concat (nnreddit-rpc-call nil nil "user_attr" "name") "@reddit.com"))))
 
