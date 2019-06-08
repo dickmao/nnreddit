@@ -461,12 +461,12 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
             ;; seen-indices are one-indexed !
             (let* ((newsrc-seen-index-now
                     (nnreddit-aif (seq-position
-                              headers
-                              newsrc-seen-id
-                              (lambda (plst newsrc-seen-id)
-                                (or (null newsrc-seen-id)
-                                    (>= (nnreddit--base10 (plist-get plst :id))
-                                        (nnreddit--base10 newsrc-seen-id)))))
+                                   headers
+                                   newsrc-seen-id
+                                   (lambda (plst newsrc-seen-id)
+                                     (or (null newsrc-seen-id)
+                                         (>= (nnreddit--base10 (plist-get plst :id))
+                                             (nnreddit--base10 newsrc-seen-id)))))
                         (1+ it) 0))
                    (updated-seen-index (- num-headers
                                           (nnreddit-aif
@@ -692,12 +692,16 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
             do (accept-process-output)
             finally
             (goto-char (point-min))
-            (let* ((json-object-type 'plist)
-                   (json-key-type 'keyword)
-                      (result (json-read)))
-                 (if (plist-get result :error)
-                     (signal 'json-rpc-error (plist-get result :error))
-                   (cl-return (plist-get result :result))))))))
+            (condition-case err
+                (let* ((json-object-type 'plist)
+                       (json-key-type 'keyword)
+                       (result (json-read)))
+                  (if (plist-get result :error)
+                      (signal 'json-error (plist-get result :error))
+                    (cl-return (plist-get result :result))))
+              (json-error
+               (gnus-message 2 "nnreddit-rpc-wait: %s" (error-message-string err))
+               (cl-return nil)))))))
 
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
   "`json-rpc--request' assumes HTTP transport which jsonrpyc does not."
