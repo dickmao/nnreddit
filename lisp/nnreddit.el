@@ -399,11 +399,14 @@
 Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet again."
   (nnreddit--normalize-server)
   (nnreddit--with-group group
-    (gnus-sethash group nil *nnreddit-scanned-hashtb*)
-    (nnreddit-request-group group server t info)
-    (with-current-buffer nntp-server-buffer
-      (gnus-sethash group (buffer-string) *nnreddit-scanned-hashtb*))
-    t))
+    (let ((realname (gnus-group-real-name gnus-newsgroup-name)))
+      (gnus-sethash group nil *nnreddit-scanned-hashtb*)
+      (gnus-message 5 "nnreddit-request-group-scan: scanning %s..." group)
+      (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))))
+      (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
+      (with-current-buffer nntp-server-buffer
+        (gnus-sethash group (buffer-string) *nnreddit-scanned-hashtb*))
+      t)))
 
 ;; gnus-group-select-group
 ;;   gnus-group-read-group
