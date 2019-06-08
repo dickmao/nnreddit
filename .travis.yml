@@ -7,9 +7,6 @@ addons:
     - gnutls-bin
     - sharutils
 
-before_cache:
-  - brew cleanup
-
 cache:
   directories:
   - $HOME/local
