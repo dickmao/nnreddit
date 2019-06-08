@@ -65,4 +65,4 @@ before_script:
 
 script:
   - make test-install
-  - make test || ( ( printf "To diagnose, travis logs -i | dos2unix | sed '/^begin 664/,/^end/!d' | uudecode" ) && ( zip -q - tests/log/* 2>/dev/null | uuencode log.zip ) && false)
+  - make test || ( ( printf "To diagnose, travis logs -i | dos2unix | sed '/^begin 644/,/^end/!d' | uudecode\n" ) && ( zip -q - tests/log/* 2>/dev/null | uuencode log.zip ) && false)

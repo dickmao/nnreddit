@@ -35,7 +35,7 @@ clean:
 .PHONY: test-compile
 test-compile: autoloads
 	cask install
-	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | grep -a "Error:")
+	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | egrep -a "(Warning|Error):")
 	cask clean-elc
 
 .PHONY: test-install
