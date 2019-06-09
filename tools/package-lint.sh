@@ -30,9 +30,10 @@ fi
 # Lint failures are ignored if EMACS_LINT_IGNORE is defined, so that lint
 # failures on Emacs 24.2 and below don't cause the tests to fail, as these
 # versions have buggy imenu that reports (defvar foo) as a definition of foo.
+# Reduce purity via:
+# --eval "(fset 'package-lint--check-defs-prefix (symbol-function 'ignore))" \
 "$EMACS" -Q -batch \
          --eval "$INIT_PACKAGE_EL" \
          -l package-lint.el \
-         --eval "(fset 'package-lint--check-defs-prefix (symbol-function 'ignore))" \
          -f package-lint-batch-and-exit \
          lisp/nnreddit.el || [ -n "${EMACS_LINT_IGNORE+x}" ]
