@@ -39,6 +39,7 @@
 ;; articles        {root article, comments}
 
 ;;; set up all-things-python on `package-install', `package-install-file'
+(defvar nnreddit-python-command)
 (eval-and-compile
   (require 'virtualenvwrapper)
   (defcustom nnreddit-python-command (if (equal system-type 'windows-nt)
@@ -201,20 +202,20 @@
        ((= (length head) 1) `(if ,(car head) ,rest))
        (t `(let (,head) (if ,(car head) ,rest)))))))
 
-(defvar *nnreddit-scanned-hashtb* (gnus-make-hashtable)
+(defvar nnreddit-scanned-hashtb (gnus-make-hashtable)
   "group (subreddit) string -> boolean")
 
-(defvar *nnreddit-headers-hashtb* (gnus-make-hashtable)
+(defvar nnreddit-headers-hashtb (gnus-make-hashtable)
   "group (subreddit) string -> interleaved submissions and comments sorted by created time")
 
-(defvar *nnreddit-refs-hashtb* (gnus-make-hashtable)
+(defvar nnreddit-refs-hashtb (gnus-make-hashtable)
   "Who replied to whom (global over all entries)")
 
-(defvar *nnreddit-authors-hashtb* (gnus-make-hashtable)
+(defvar nnreddit-authors-hashtb (gnus-make-hashtable)
   "For fast lookup of parent-author (global over all entries)")
 
 (defsubst nnreddit-get-headers (group)
-  (gnus-gethash-safe group *nnreddit-headers-hashtb*))
+  (gnus-gethash-safe group nnreddit-headers-hashtb))
 
 (defun nnreddit-find-header (group id)
   "O(n) search of headers for ID"
@@ -228,10 +229,10 @@
   (unless depth
     (setq depth most-positive-fixnum))
   (when (> depth 0)
-    (nreverse (cl-loop with parent-id = (gnus-gethash-safe name *nnreddit-refs-hashtb*)
+    (nreverse (cl-loop with parent-id = (gnus-gethash-safe name nnreddit-refs-hashtb)
                        for level = 0 then level
                        for name = parent-id then
-                       (gnus-gethash-safe name *nnreddit-refs-hashtb*)
+                       (gnus-gethash-safe name nnreddit-refs-hashtb)
                        until (null name)
                        collect name
                        until (>= (cl-incf level) depth)))))
@@ -239,12 +240,12 @@
 (defsubst nnreddit-sort-append-headers (group &rest lvp)
   (gnus-sethash group (append (nnreddit-get-headers group)
                               (apply #'nnreddit--sort-headers lvp))
-                *nnreddit-headers-hashtb*))
+                nnreddit-headers-hashtb))
 
-(defvar *nnreddit-directory* (nnheader-concat gnus-directory "reddit")
+(defvar nnreddit-directory (nnheader-concat gnus-directory "reddit")
   "Where to retrieve last read state.")
 
-(defvar *nnreddit-processes* nil
+(defvar nnreddit-processes nil
   "Garbage collect PRAW processes.")
 
 (nnoo-define-basics nnreddit)
@@ -252,15 +253,6 @@
 (defcustom nnreddit-use-virtualenv (not noninteractive)
   "nnreddit developers will appreciate talking to the python module living in their dev space, not the virtualenv space."
   :type 'boolean
-  :group 'nnreddit)
-
-(defcustom nnreddit-page-size 25
-  "Initially retrieve these many submissions."
-  :type '(integer
-          :validate (lambda (w) (let ((v (widget-value w)))
-                                  (unless (and (<= v 200) (> v 0))
-                                    (widget-put w :error "Page size range 1-200")
-                                    w))))
   :group 'nnreddit)
 
 (defsubst nnreddit-rpc-call (server generator_kwargs method &rest args)
@@ -305,8 +297,8 @@
     (mapc (lambda (proc) (if (and server (not (string= server (process-name proc))))
                              (push proc new-processes)
                            (delete-process proc)))
-          *nnreddit-processes*)
-    (setq *nnreddit-processes* new-processes)))
+          nnreddit-processes)
+    (setq nnreddit-processes new-processes)))
 
 (deffoo nnreddit-request-close ()
   (nnreddit-close-server)
@@ -318,7 +310,7 @@
 (deffoo nnreddit-server-opened (&optional server)
   (nnreddit--normalize-server)
   (cl-remove-if-not (lambda (proc) (string= server (process-name proc)))
-                 *nnreddit-processes*))
+                 nnreddit-processes))
 
 (deffoo nnreddit-status-message (&optional server)
   (nnreddit--normalize-server)
@@ -391,12 +383,12 @@
 Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet again."
   (nnreddit--normalize-server)
   (nnreddit--with-group group
-    (gnus-sethash group nil *nnreddit-scanned-hashtb*)
+    (gnus-sethash group nil nnreddit-scanned-hashtb)
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s..." group)
     (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))))
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
     (with-current-buffer nntp-server-buffer
-      (gnus-sethash group (buffer-string) *nnreddit-scanned-hashtb*))
+      (gnus-sethash group (buffer-string) nnreddit-scanned-hashtb))
     t))
 
 ;; gnus-group-select-group
@@ -412,11 +404,11 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
   (nnreddit--normalize-server)
   ;; (nnreddit-close-server server)
   (nnreddit--with-group group
-    (nnreddit-aif (gnus-gethash-safe group *nnreddit-scanned-hashtb*)
+    (nnreddit-aif (gnus-gethash-safe group nnreddit-scanned-hashtb)
         (progn
           (gnus-message 7 "nnreddit-request-group: reuse %s" it)
           (nnheader-insert "%s" it)
-          (gnus-sethash group nil *nnreddit-scanned-hashtb*))
+          (gnus-sethash group nil nnreddit-scanned-hashtb))
       (let* ((info
               (or info
                   (gnus-get-info gnus-newsgroup-name)
@@ -436,10 +428,10 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                                 (- (plist-get (aref comments 0) :created_utc) 7200)
                                 raw-submissions))))
         (seq-doseq (e comments)
-          (nnreddit-add-entry *nnreddit-refs-hashtb* e :parent_id)) ;; :parent_id is fullname
+          (nnreddit-add-entry nnreddit-refs-hashtb e :parent_id)) ;; :parent_id is fullname
 
         (seq-doseq (e (vconcat submissions comments))
-          (nnreddit-add-entry *nnreddit-authors-hashtb* e :author))
+          (nnreddit-add-entry nnreddit-authors-hashtb e :author))
 
         (nnreddit-sort-append-headers group submissions comments)
 
@@ -558,7 +550,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
            "\n")
           (nnreddit-and-let* ((parent-name (plist-get header :parent_id)) ;; parent-id is full
                          (parent-author (or (gnus-gethash-safe parent-name
-                                                               *nnreddit-authors-hashtb*)
+                                                               nnreddit-authors-hashtb)
                                             "Someone"))
                          (parent-body (nnreddit--get-body parent-name group server)))
             (insert (nnreddit--citation-wrap parent-author parent-body)))
@@ -631,7 +623,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                 (gnus-message 5 "nnreddit-request-list: scanning %s..." realname)
                 (gnus-activate-group group)
                 (gnus-message 5 "nnreddit-request-list: scanning %s...done" realname)
-                (gnus-sethash realname (buffer-string) *nnreddit-scanned-hashtb*)
+                (gnus-sethash realname (buffer-string) nnreddit-scanned-hashtb)
                 (gnus-group-unsubscribe-group group gnus-level-default-subscribed t)))
             groups)
       (erase-buffer)
@@ -647,7 +639,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
     (gnus-message 2 "nnreddit-sentinel: process %s %s"
                   (car (process-command process))
                   (replace-regexp-in-string "\n$" "" event))
-    (setq *nnreddit-headers-hashtb* (gnus-make-hashtable))
+    (setq nnreddit-headers-hashtb (gnus-make-hashtable))
     (nnreddit-clear-scanned)
     (gnus-backlog-shutdown)))
 
@@ -680,7 +672,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                                  :noquery t
                                  :sentinel #'nnreddit-sentinel
                                  :stderr (get-buffer-create (format " *%s-stderr*" server)))))
-      (push proc *nnreddit-processes*))
+      (push proc nnreddit-processes))
     proc))
 
 (defun nnreddit-rpc-wait (connection)
@@ -790,10 +782,10 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 
 (defun nnreddit-clear-scanned (&optional group)
   (if group
-      (when (gnus-gethash-safe group *nnreddit-scanned-hashtb*)
+      (when (gnus-gethash-safe group nnreddit-scanned-hashtb)
         ;; avoid littering hashtb if GROUP is mispelled
-        (gnus-sethash group nil *nnreddit-scanned-hashtb*))
-    (setq *nnreddit-scanned-hashtb* (gnus-make-hashtable))))
+        (gnus-sethash group nil nnreddit-scanned-hashtb))
+    (setq nnreddit-scanned-hashtb (gnus-make-hashtable))))
 
 ;; I believe I did try buffer-localizing hooks, and it wasn't sufficient
 (add-hook 'gnus-article-mode-hook 'nnreddit-article-mode-activate)
