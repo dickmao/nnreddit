@@ -39,7 +39,6 @@
 ;; articles        {root article, comments}
 
 ;;; set up all-things-python on `package-install', `package-install-file'
-(defvar nnreddit-python-command)
 (eval-and-compile
   (require 'virtualenvwrapper)
   (defcustom nnreddit-python-command (if (equal system-type 'windows-nt)
@@ -124,7 +123,8 @@
 
 (let ((map nnreddit-summary-mode-map))
   (define-key map "r" 'gnus-summary-followup)
-  (define-key map "R" 'gnus-summary-followup-with-original))
+  (define-key map "R" 'gnus-summary-followup-with-original)
+  (define-key map "F" 'gnus-summary-followup-with-original))
 
 (define-minor-mode nnreddit-group-mode
   "Add `R-g' go-to-subreddit binding to *Group*.
@@ -137,19 +137,23 @@
       "g" nnreddit-goto-group)))
 
 (defun nnreddit-goto-group (realname)
+  "Jump to the REALNAME subreddit."
   (interactive (list (read-no-blanks-input "Subreddit: r/")))
   (let ((group (gnus-group-full-name realname "nnreddit")))
     (gnus-group-read-group t t group)))
 
 (defsubst nnreddit-novote ()
+  "Retract vote."
   (interactive)
   (nnreddit-vote-current-article 0))
 
 (defsubst nnreddit-downvote ()
+  "Downvote the article in current buffer."
   (interactive)
   (nnreddit-vote-current-article -1))
 
 (defsubst nnreddit-upvote ()
+  "Upvote the article in current buffer."
   (interactive)
   (nnreddit-vote-current-article 1))
 
@@ -165,6 +169,8 @@
                  sequence)))))
 
 (defmacro nnreddit--normalize-server ()
+  "Disallow \"server\" from being empty string, which is unsettling.
+Normalize it to \"nnreddit-default\"."
   `(let ((canonical "nnreddit-default"))
     (when (equal server "")
       (setq server nil))
@@ -174,20 +180,20 @@
       (error "nnreddit--normalize-server: multiple servers unsupported!"))))
 
 (defmacro nnreddit-aif (test-form then-form &rest else-forms)
-  "Anaphoric IF.  Adapted from `e2wm:aif'."
+  "Anaphoric if TEST-FORM THEN-FORM ELSE-FORMS.  Adapted from `e2wm:aif'."
   (declare (debug (form form &rest form)))
   `(let ((it ,test-form))
      (if it ,then-form ,@else-forms)))
 (put 'nnreddit-aif 'lisp-indent-function 2)
 
 (defmacro nnreddit-aand (test &rest rest)
-  "Anaphoric AND.  Adapted from `e2wm:aand'."
+  "Anaphoric conjunction of TEST and REST.  Adapted from `e2wm:aand'."
   (declare (debug (form &rest form)))
   `(let ((it ,test))
      (if it ,(if rest (macroexpand-all `(nnreddit-aand ,@rest)) 'it))))
 
 (defmacro nnreddit-and-let* (bindings &rest form)
-  "Gauche's `and-let*'."
+  "Gauche's `and-let*'.  Each of BINDINGS must resolve to t before evaluating FORM."
   (declare (debug ((&rest &or symbolp (form) (gate symbolp &optional form))
                    body))
            ;; See: (info "(elisp) Specification List")
@@ -203,22 +209,23 @@
        (t `(let (,head) (if ,(car head) ,rest)))))))
 
 (defvar nnreddit-scanned-hashtb (gnus-make-hashtable)
-  "group (subreddit) string -> boolean")
+  "Group (subreddit) string -> boolean.")
 
 (defvar nnreddit-headers-hashtb (gnus-make-hashtable)
-  "group (subreddit) string -> interleaved submissions and comments sorted by created time")
+  "Group (subreddit) string -> interleaved submissions and comments sorted by created time.")
 
 (defvar nnreddit-refs-hashtb (gnus-make-hashtable)
-  "Who replied to whom (global over all entries)")
+  "Who replied to whom (global over all entries).")
 
 (defvar nnreddit-authors-hashtb (gnus-make-hashtable)
-  "For fast lookup of parent-author (global over all entries)")
+  "For fast lookup of parent-author (global over all entries).")
 
 (defsubst nnreddit-get-headers (group)
+  "List headers from GROUP."
   (gnus-gethash-safe group nnreddit-headers-hashtb))
 
 (defun nnreddit-find-header (group id)
-  "O(n) search of headers for ID"
+  "O(n) search of GROUP headers for ID."
   (nnreddit-and-let* ((headers (nnreddit-get-headers group))
                       (found (seq-position headers id
                                            (lambda (plst id)
@@ -226,6 +233,7 @@
                      (nnreddit--get-header (1+ found) group)))
 
 (defsubst nnreddit-refs-for (name &optional depth)
+  "Get message ancestry for NAME up to DEPTH."
   (unless depth
     (setq depth most-positive-fixnum))
   (when (> depth 0)
@@ -238,6 +246,7 @@
                        until (>= (cl-incf level) depth)))))
 
 (defsubst nnreddit-sort-append-headers (group &rest lvp)
+  "Append to hashed headers of GROUP the LVP (list of vector of plists)."
   (gnus-sethash group (append (nnreddit-get-headers group)
                               (apply #'nnreddit--sort-headers lvp))
                 nnreddit-headers-hashtb))
@@ -251,11 +260,12 @@
 (nnoo-define-basics nnreddit)
 
 (defcustom nnreddit-use-virtualenv (not noninteractive)
-  "nnreddit developers will appreciate talking to the python module living in their dev space, not the virtualenv space."
+  "Talk to the the python module in filesystem space, not virtualenv space."
   :type 'boolean
   :group 'nnreddit)
 
 (defsubst nnreddit-rpc-call (server generator_kwargs method &rest args)
+  "Make jsonrpc call to SERVER with GENERATOR_KWARGS using METHOD ARGS."
   (nnreddit--normalize-server)
   (let* ((connection (json-rpc--create :process (nnreddit-rpc-get server)
                                        :host "localhost"
@@ -264,6 +274,7 @@
     result))
 
 (defun nnreddit-vote-current-article (vote)
+  "VOTE is +1, -1, 0."
   (unless gnus-article-current ;; gnus-article-current or gnus-current-article?
     (error "No current article"))
   (unless gnus-newsgroup-name
@@ -281,7 +292,7 @@
     (nnreddit-rpc-call nil nil "vote" article-name vote)))
 
 (defun nnreddit-update-subscription (group level oldlevel &optional _previous)
-  "nnreddit `gnus-group-change-level' callback"
+  "Nnreddit `gnus-group-change-level' callback of GROUP to LEVEL from OLDLEVEL."
   (let ((old-subbed-p (<= oldlevel gnus-level-default-subscribed))
         (new-subbed-p (<= level gnus-level-default-subscribed)))
     (unless (eq old-subbed-p new-subbed-p)
@@ -291,6 +302,7 @@
         (nnreddit-rpc-call nil nil "unsubscribe" (gnus-group-real-name group))))))
 
 (defun nnreddit-rpc-kill (&optional server)
+  "Kill the jsonrpc process named SERVER."
   (interactive (list nil))
   (nnreddit--normalize-server)
   (let (new-processes)
@@ -324,6 +336,7 @@
   t)
 
 (defmacro nnreddit--with-group (group &rest body)
+  "Disambiguate GROUP if it's empty and execute BODY."
   (declare (debug (form &rest form))
            (indent 1))
   `(let* ((group (or ,group (gnus-group-real-name gnus-newsgroup-name)))
@@ -331,24 +344,27 @@
      ,@body))
 
 (defun nnreddit--get-header (article-number &optional group)
+  "Get header indexed ARTICLE-NUMBER for GROUP."
   (nnreddit--with-group group
     (let ((headers (nnreddit-get-headers group)))
       (elt headers (1- article-number)))))
 
 (defun nnreddit--get-body (name &optional group server)
+  "Get full text of submission or comment NAME for GROUP at SERVER."
   (nnreddit--normalize-server)
   (nnreddit--with-group group
     (nnreddit-rpc-call server nil "body" group name)))
 
 (defsubst nnreddit-hack-name-to-id (name)
+  "Get x from t1_x (NAME)."
   (cl-subseq name 3))
 
 (defsubst nnreddit--br-tagify (body)
-  "Reddit-html shies away from <BR>.  Should it?"
+  "Reddit-html BODY shies away from <BR>.  Should it?"
   (replace-regexp-in-string "\n" "<br>" body))
 
 (defsubst nnreddit--citation-wrap (author body)
-  "Precede each line with `gnus-message-cite-prefix-regexp'."
+  "Cite AUTHOR using `gnus-message-cite-prefix-regexp' before displaying BODY."
   (with-temp-buffer
     (insert body)
     (mm-url-remove-markup)
@@ -362,15 +378,18 @@
               "\n</pre>\n\n"))))
 
 (defun nnreddit-add-entry (hashtb e field)
+  "Add to HASHTB the pair consisting of entry E's name to its FIELD."
   (gnus-sethash (plist-get e :name) (plist-get e field) hashtb))
 
-(defun nnreddit--filter-after (after-this vop) ;; vector of plists
+(defun nnreddit--filter-after (after-this vop)
+  "Get elements created AFTER-THIS in VOP (vector of plists)."
   (cl-loop for elt-idx in (funcall nnreddit--seq-map-indexed
                                    (lambda (elt idx) (cons elt idx)) vop)
            until (>= (plist-get (car elt-idx) :created_utc) after-this)
            finally return (seq-drop vop (or (cdr elt-idx) 0))))
 
 (defsubst nnreddit--base10 (base36)
+  "Convert BASE36 reddit name encoding to a base10 integer."
   (apply #'+ (funcall nnreddit--seq-map-indexed
                       (lambda (elt idx)
                         (* (expt 36 idx)
@@ -502,13 +521,16 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
     t))
 
 (defsubst nnreddit--make-message-id (fullname)
+  "Construct a valid Gnus message id from FULLNAME."
   (format "<%s@reddit.com>" fullname))
 
 (defsubst nnreddit--make-references (fullname)
+  "Construct a space delimited string of message ancestors of FULLNAME."
   (mapconcat (lambda (ref) (nnreddit--make-message-id ref))
              (nnreddit-refs-for fullname) " "))
 
 (defsubst nnreddit--make-header (article-number &optional group)
+  "Construct full headers of articled indexed ARTICLE-NUMBER in GROUP."
   (let* ((header (nnreddit--get-header article-number group))
          (score (plist-get header :score))
          (num-comments (plist-get header :num_comments)))
@@ -566,8 +588,9 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
         (nnheader-insert-nov (nnreddit--make-header i group)))
       'nov)))
 
-(defsubst nnreddit--earliest-among (indices lvp) ;; list-of-vectors-of-plists
-  "Return (list-to-iterate . next-earliest)"
+(defsubst nnreddit--earliest-among (indices lvp)
+  "Return (list-to-iterate . next-earliest) from INDICES (thus-far iterators)
+and LVP (list of vectors of plists).  Used in the interleaving of submissions and comments."
   (let (earliest next-earliest)
     (dolist (plst-idx
              (cl-remove-if-not #'car
@@ -589,7 +612,8 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
             ((null next-earliest)
              (setq next-earliest plst-idx))))))
 
-(defun nnreddit--sort-headers (&rest lvp) ;; list-of-vectors-of-plists
+(defun nnreddit--sort-headers (&rest lvp)
+  "Sort headers for LVP (list of vectors of plists)."
   (let* ((indices (make-list (length lvp) 0))
          result)
     (while (not (equal indices (mapcar #'length lvp)))
@@ -634,7 +658,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
   t)
 
 (defun nnreddit-sentinel (process event)
-  "Wipe headers state when PROCESS dies."
+  "Wipe headers state when PROCESS dies from EVENT."
   (unless (string= "open" (substring event 0 4))
     (gnus-message 2 "nnreddit-sentinel: process %s %s"
                   (car (process-command process))
@@ -696,7 +720,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                (cl-return nil)))))))
 
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
-  "`json-rpc--request' assumes HTTP transport which jsonrpyc does not."
+  "Send to CONNECTION a request with generator KWARGS calling METHOD ARGS.  `json-rpc--request' assumes HTTP transport which jsonrpyc does not."
   (unless (hash-table-p kwargs)
     (setq kwargs #s(hash-table)))
   (let* ((id (cl-incf (json-rpc-id-counter connection)))
@@ -762,25 +786,26 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 (nnoo-define-skeleton nnreddit)
 
 (defun nnreddit-article-mode-activate ()
-  "Augment the gnus-article-mode-map conditionally."
+  "Augment the `gnus-article-mode-map' conditionally."
   (when (and (stringp gnus-newsgroup-name)
              (listp (gnus-group-method gnus-newsgroup-name))
              (eq 'nnreddit (car (gnus-group-method gnus-newsgroup-name))))
     (nnreddit-article-mode)))
 
 (defun nnreddit-summary-mode-activate ()
-  "Shadow some bindings in gnus-summary-mode-map conditionally."
+  "Shadow some bindings in `gnus-summary-mode-map' conditionally."
   (when (and (stringp gnus-newsgroup-name)
              (listp (gnus-group-method gnus-newsgroup-name))
              (eq 'nnreddit (car (gnus-group-method gnus-newsgroup-name))))
     (nnreddit-summary-mode)))
 
 (defun nnreddit-group-mode-activate ()
-  "Augment the gnus-group-mode-map unconditionally."
+  "Augment the `gnus-group-mode-map' unconditionally."
   (setq gnus-group-change-level-function 'nnreddit-update-subscription)
   (nnreddit-group-mode))
 
 (defun nnreddit-clear-scanned (&optional group)
+  "Clear the don't-read-again flag for GROUP."
   (if group
       (when (gnus-gethash-safe group nnreddit-scanned-hashtb)
         ;; avoid littering hashtb if GROUP is mispelled
