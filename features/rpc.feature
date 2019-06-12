@@ -73,3 +73,22 @@ Scenario: message-send-and-exit
   And I press "C-c C-c"
   And I should be in buffer "*Summary nnreddit:PostPreview*"
   Then end recording "post"
+
+@loose
+Scenario: Reply to a loose thread
+  Given gnus stop
+  When begin recording "loose"
+  Given gnus start
+  And I go to word "PostPreview"
+  And I press "RET"
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
+  And I go to string "Re: "
+  And emacs26 cannot do action chain "f r"
+  Then I should be in buffer like "*unsent followup"
+  And I should see "Reply-Root: yes"
+  And I press "M->"
+  And I type "this is a test"
+  And I dump buffer
+  And I press "C-c C-c"
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
+  Then end recording "loose"

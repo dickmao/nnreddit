@@ -189,13 +189,16 @@ class AuthenticatedReddit(Reddit):
     def submit(self, display_name, title, **kwargs):
         self.subreddit(display_name).submit(title, **kwargs)
 
-    def reply(self, name, body):
+    def reply(self, name, body, q_reply_root):
         (type, id) = name.split("_", 1)
         parent = None
         if type == self.config.kinds['submission']:
             parent = self.submission(id)
         elif type == self.config.kinds['comment']:
             parent = self.comment(id)
+            if q_reply_root and parent.link_id:
+                (_, root_id) = parent.link_id.split("_", 1)
+                parent = self.submission(root_id)
         else:
             raise ValueError('Unexpected name {} with type {}'.format(name, type))
         parent.reply(body)

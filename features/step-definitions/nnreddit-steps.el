@@ -10,6 +10,18 @@
         (And "I execute the action chain")
         (Then (format "I should be in buffer \"*Summary nnreddit:%s*\"" group))))
 
+(When "^I should be in buffer like \"\\(.+\\)\"$"
+      (lambda (prefix)
+        (should (string-prefix-p prefix (buffer-name)))))
+
+(When "^I go to string \"\\(.+\\)\"$"
+      (lambda (string)
+        (goto-char (point-min))
+        (let ((search (re-search-forward string nil t))
+              (message "Can not go to string '%s' since it does not exist in the current buffer: %s"))
+          (cl-assert search nil message string (buffer-string)))
+        (backward-char (length string))))
+
 (When "^I clear buffer \"\\(.*\\)\"$"
       (lambda (buffer)
         (with-current-buffer buffer

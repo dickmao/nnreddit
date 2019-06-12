@@ -747,6 +747,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
          (title (or (message-fetch-field "Subject") (error "No Subject field")))
          (link (message-fetch-field "Link"))
          (reply-p (not (null message-reply-headers)))
+         (root-p (message-fetch-field "Reply-Root"))
          (article-number (cdr gnus-article-current))
          (group (if (numberp article-number)
                     (gnus-group-real-name (car gnus-article-current))
@@ -760,7 +761,8 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
               (narrow-to-region (point) (point-max))
               (buffer-string)))))
     (cond (reply-p (nnreddit-rpc-call server nil "reply"
-                                      (plist-get header :name) body))
+                                      (plist-get header :name)
+                                      body (stringp root-p)))
           (link (let* ((parsed-url (url-generic-parse-url link))
                        (host (url-host parsed-url)))
                   (if (and (stringp host) (not (zerop (length host))))
@@ -830,41 +832,82 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 ;; `gnus-newsgroup-p' requires valid method post-mail to return t
 (add-to-list 'gnus-valid-select-methods '("nnreddit" post-mail) t)
 
+
+;; Add prompting for replying to thread root to gnus-summary-followup.
+;; The interactive spec of gnus-summary-followup is putatively preserved.
+(add-function :around (symbol-function 'gnus-summary-followup)
+   (lambda (f &rest args)
+     (cond ((eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
+            (or (nnreddit-and-let*
+                    ((article-number (gnus-summary-article-number))
+                     (header (nnreddit--get-header article-number))
+                     (root-name (car (nnreddit-refs-for (plist-get header :name))))
+                     (rootless (or (not (stringp root-name))
+                                   (not (string-prefix-p "t3_" root-name))
+                                   (not (nnreddit-find-header
+                                         (gnus-group-real-name gnus-newsgroup-name)
+                                         (nnreddit-hack-name-to-id root-name)))))
+                     (reply-root (read-char-choice
+                                  "Reply loose thread [m]essage or [r]oot: " '(?m ?r)))
+                     ((eq reply-root ?r)))
+                  (let* ((link-header (apply-partially #'message-add-header
+                                                       "Reply-Root: yes"))
+                         (add-link-header (apply-partially #'add-hook
+                                                           'message-header-setup-hook
+                                                           link-header))
+                         (remove-link-header (apply-partially #'remove-hook
+                                                              'message-header-setup-hook
+                                                              link-header)))
+                    (funcall add-link-header)
+                    (condition-case err
+                        (progn
+                          (apply f args)
+                          (funcall remove-link-header))
+                      (error (funcall remove-link-header)
+                             (error (error-message-string err)))))
+                  t)
+                (apply f args)))
+           (t (apply f args)))))
+
 (add-function
  :around (symbol-function 'message-send-news)
  (lambda (f &rest args)
-   (let* ((dont-ask (lambda (prompt)
-                      (when (cl-search "mpty article" prompt) t)))
-          (link-p (not (null (message-fetch-field "Link"))))
-          (message-shoot-gnksa-feet (if link-p t message-shoot-gnksa-feet)))
-     (condition-case err
-         (progn
-           (when link-p
-             (add-function :before-until (symbol-function 'y-or-n-p) dont-ask))
-           (prog1 (apply f args)
-             (remove-function (symbol-function 'y-or-n-p) dont-ask)))
-       (error (remove-function (symbol-function 'y-or-n-p) dont-ask)
-              (error (error-message-string err)))))))
+   (cond ((eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
+          (let* ((dont-ask (lambda (prompt)
+                             (when (cl-search "mpty article" prompt) t)))
+                 (link-p (not (null (message-fetch-field "Link"))))
+                 (message-shoot-gnksa-feet (if link-p t message-shoot-gnksa-feet)))
+            (condition-case err
+                (progn
+                  (when link-p
+                    (add-function :before-until (symbol-function 'y-or-n-p) dont-ask))
+                  (prog1 (apply f args)
+                    (remove-function (symbol-function 'y-or-n-p) dont-ask)))
+              (error (remove-function (symbol-function 'y-or-n-p) dont-ask)
+                     (error (error-message-string err))))))
+         (t (apply f args)))))
 
 (add-function
  :around (symbol-function 'gnus-summary-post-news)
  (lambda (f &rest args)
-   (let* ((nnreddit-post-type (read-char-choice "[l]ink / [t]ext: " '(?l ?t)))
-          (link-header (apply-partially #'message-add-header "Link: https://"))
-          (add-link-header (apply-partially #'add-hook
-                                            'message-header-setup-hook
-                                            link-header))
-          (remove-link-header (apply-partially #'remove-hook
-                                               'message-header-setup-hook
-                                               link-header)))
-     (cl-case nnreddit-post-type
-       (?l (funcall add-link-header)))
-     (condition-case err
-         (progn
-           (apply f args)
-           (funcall remove-link-header))
-       (error (funcall remove-link-header)
-              (error (error-message-string err)))))))
+   (cond ((eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
+          (let* ((nnreddit-post-type (read-char-choice "[l]ink / [t]ext: " '(?l ?t)))
+                 (link-header (apply-partially #'message-add-header "Link: https://"))
+                 (add-link-header (apply-partially #'add-hook
+                                                   'message-header-setup-hook
+                                                   link-header))
+                 (remove-link-header (apply-partially #'remove-hook
+                                                      'message-header-setup-hook
+                                                      link-header)))
+            (cl-case nnreddit-post-type
+              (?l (funcall add-link-header)))
+            (condition-case err
+                (progn
+                  (apply f args)
+                  (funcall remove-link-header))
+              (error (funcall remove-link-header)
+                     (error (error-message-string err))))))
+         (t (apply f args)))))
 
 (add-function
  :filter-return (symbol-function 'message-make-fqdn)
