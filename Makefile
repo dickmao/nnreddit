@@ -40,7 +40,7 @@ test-compile: autoloads
 
 .PHONY: test-install
 test-install:
-	sh tools/package-lint.sh
+	sh -e tools/package-lint.sh
 	mkdir -p tests/test-install
 	if [ ! -s "tests/test-install/$(PKBUILD).tar.gz" ] ; then \
 	  cd tests/test-install ; curl -sLOk https://github.com/melpa/package-build/archive/$(PKBUILD).tar.gz ; fi

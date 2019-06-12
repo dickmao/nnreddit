@@ -26,6 +26,14 @@ else
     ERROR_ON_WARN=t
 fi
 
+"$EMACS" -Q -batch \
+         --eval "$INIT_PACKAGE_EL" \
+         -l package-lint.el \
+         --visit lisp/nnreddit.el \
+         --eval "(checkdoc-eval-current-buffer)" \
+         --eval "(princ (with-current-buffer checkdoc-diagnostic-buffer (buffer-string)))" \
+         2>&1 | egrep -a "^nnreddit.el:" | egrep -v "Messages should start" && [ -n "${EMACS_LINT_IGNORE+x}" ]
+
 # Lint ourselves
 # Lint failures are ignored if EMACS_LINT_IGNORE is defined, so that lint
 # failures on Emacs 24.2 and below don't cause the tests to fail, as these

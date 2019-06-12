@@ -23,7 +23,8 @@
    '(gnus-save-newsrc-file nil)
    '(gnus-secondary-select-methods (quote ((nnreddit ""))))
    '(gnus-select-method (quote (nnnil)))
-   '(gnus-verbose 8)))
+   '(gnus-verbose 8)
+   '(gnus-interactive-exit (quote quiet))))
 
 (require 'test)
 
