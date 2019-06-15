@@ -33,15 +33,17 @@ In your ``.gnus`` or ``.emacs``,
 A typical session might look like::
 
    M-x gnus
-   R g emacs
+   R g emacsy
    q
    u
 
-Now we're subscribed to ``r/emacs``.  Read the first unread article with ``RET``.  Rapidly catch yourself up via ``N`` and ``P``.
+Keybinding ``u`` (gnus-group-unsubscribe-current-group) actually *toggles* subscription to ``r/emacsy``.  I don't make the rules.
+
+Reenter the ``emacsy`` newsgroup with ``RET``.  Rapidly catch yourself up via ``N`` and ``P``.  Instantly catch-up with ``c``, and worry not.  If a thread was important, it will show up again.
 
 Create a post via ``a``.
 
-Reply to articles with ``f`` or ``r``.
+Reply to articles with ``f`` or ``r``.  Include original with ``F``.
 
 Vote articles by first entering the Article buffer, then ``R -`` (down), ``R =`` (up), or ``R 0`` (retract).
 
