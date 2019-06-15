@@ -563,7 +563,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
           (insert
            "Newsgroups: " group "\n"
            "Subject: " (mail-header-subject mail-header)  "\n"
-           "From: " (mail-header-from mail-header) "\n"
+           "From: " (or (mail-header-from mail-header) "nobody") "\n"
            "Date: " (mail-header-date mail-header) "\n"
            "Message-ID: " (mail-header-id mail-header) "\n"
            "References: " (mail-header-references mail-header) "\n"
