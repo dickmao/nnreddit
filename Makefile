@@ -34,13 +34,13 @@ clean:
 
 .PHONY: test-compile
 test-compile: autoloads
+	sh -e tools/package-lint.sh
 	cask install
 	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | egrep -a "(Warning|Error):")
 	cask clean-elc
 
 .PHONY: test-install
 test-install:
-	sh -e tools/package-lint.sh
 	mkdir -p tests/test-install
 	if [ ! -s "tests/test-install/$(PKBUILD).tar.gz" ] ; then \
 	  cd tests/test-install ; curl -sLOk https://github.com/melpa/package-build/archive/$(PKBUILD).tar.gz ; fi

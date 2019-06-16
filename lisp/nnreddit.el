@@ -140,6 +140,7 @@
   "Jump to the REALNAME subreddit."
   (interactive (list (read-no-blanks-input "Subreddit: r/")))
   (let ((group (gnus-group-full-name realname "nnreddit")))
+    (gnus-activate-group group t)
     (gnus-group-read-group t t group)))
 
 (defsubst nnreddit-novote ()
@@ -207,9 +208,6 @@ Normalize it to \"nnreddit-default\"."
        ((symbolp head) `(if ,head ,rest))
        ((= (length head) 1) `(if ,(car head) ,rest))
        (t `(let (,head) (if ,(car head) ,rest)))))))
-
-(defvar nnreddit-scanned-hashtb (gnus-make-hashtable)
-  "Group (subreddit) string -> boolean.")
 
 (defvar nnreddit-headers-hashtb (gnus-make-hashtable)
   "Group (subreddit) string -> interleaved submissions and comments sorted by created time.")
@@ -402,9 +400,8 @@ Normalize it to \"nnreddit-default\"."
 Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet again."
   (nnreddit--normalize-server)
   (nnreddit--with-group group
-    (nnreddit-clear-scanned group)
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s..." group)
-    (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))))
+    (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))) t)
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
     t))
 
@@ -500,19 +497,21 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 
 (deffoo nnreddit-request-scan (&optional group server)
   (nnreddit--normalize-server)
-  (nnreddit--with-group group
-    (let* ((comments (nnreddit-rpc-call server nil "comments" group))
-           (raw-submissions (nnreddit-rpc-call server nil "submissions" group))
-           (submissions (and (> (length comments) 0)
-                             (nnreddit--filter-after
-                              (- (plist-get (aref comments 0) :created_utc) 7200)
-                              raw-submissions))))
-      (seq-doseq (e comments)
-        (nnreddit-add-entry nnreddit-refs-hashtb e :parent_id)) ;; :parent_id is fullname
-
-      (seq-doseq (e (vconcat submissions comments))
-        (nnreddit-add-entry nnreddit-authors-hashtb e :author))
-      (nnreddit-sort-append-headers group submissions comments))))
+  (unless (null group)
+    (nnreddit--with-group group
+      (let* ((comments (nnreddit-rpc-call server nil "comments" group))
+             (raw-submissions (nnreddit-rpc-call server nil "submissions" group))
+             (submissions (and (> (length comments) 0)
+                               (nnreddit--filter-after
+                                (- (plist-get (aref comments 0) :created_utc) 7200)
+                                raw-submissions))))
+        (seq-doseq (e comments)
+          (nnreddit-add-entry nnreddit-refs-hashtb e :parent_id)) ;; :parent_id is fullname
+        (seq-doseq (e (vconcat submissions comments))
+          (nnreddit-add-entry nnreddit-authors-hashtb e :author))
+        (gnus-message 5 "nnreddit-request-scan: %s: +%s comments +%s submissions"
+                      group (length comments) (length submissions))
+        (nnreddit-sort-append-headers group submissions comments)))))
 
 (defsubst nnreddit--make-message-id (fullname)
   "Construct a valid Gnus message id from FULLNAME."
@@ -639,8 +638,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
               (let ((group (gnus-group-full-name realname '("nnreddit" (or server "")))))
                 (erase-buffer)
                 (gnus-message 5 "nnreddit-request-list: scanning %s..." realname)
-                (nnreddit-clear-scanned realname)
-                (gnus-activate-group group)
+                (gnus-activate-group group t)
                 (gnus-message 5 "nnreddit-request-list: scanning %s...done" realname)
                 (gnus-group-unsubscribe-group group gnus-level-default-subscribed t)))
             groups)
@@ -658,7 +656,6 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                   (car (process-command process))
                   (replace-regexp-in-string "\n$" "" event))
     (setq nnreddit-headers-hashtb (gnus-make-hashtable))
-    (nnreddit-clear-scanned)
     (gnus-backlog-shutdown)))
 
 (defun nnreddit-rpc-get (&optional server)
@@ -806,32 +803,13 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   (setq gnus-group-change-level-function 'nnreddit-update-subscription)
   (nnreddit-group-mode))
 
-(defun nnreddit-clear-scanned (&optional group)
-  "Clear the don't-read-again flag for GROUP."
-  (if group
-      (when (gnus-gethash-safe group nnreddit-scanned-hashtb)
-        ;; avoid littering hashtb if GROUP is mispelled
-        (gnus-sethash group nil nnreddit-scanned-hashtb))
-    (setq nnreddit-scanned-hashtb (gnus-make-hashtable))))
-
 ;; I believe I did try buffer-localizing hooks, and it wasn't sufficient
 (add-hook 'gnus-article-mode-hook 'nnreddit-article-mode-activate)
 (add-hook 'gnus-group-mode-hook 'nnreddit-group-mode-activate)
 (add-hook 'gnus-summary-mode-hook 'nnreddit-summary-mode-activate)
-(add-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)
-
-;; Without this, gnus-group-get-new-news-this-group (M-g)
-;; will wastefully cause an un-M-g'ed group to rescan.
-(add-function
- :around (symbol-function 'gnus-group-get-new-news-this-group)
- (lambda (f &rest args)
-   (remove-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)
-   (apply f args)
-   (add-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)))
 
 ;; `gnus-newsgroup-p' requires valid method post-mail to return t
 (add-to-list 'gnus-valid-select-methods '("nnreddit" post-mail) t)
-
 
 ;; Add prompting for replying to thread root to gnus-summary-followup.
 ;; The interactive spec of gnus-summary-followup is putatively preserved.
