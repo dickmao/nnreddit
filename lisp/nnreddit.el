@@ -715,6 +715,11 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                   (if (plist-get result :error)
                       (signal 'json-error (plist-get result :error))
                     (cl-return (plist-get result :result))))
+              (json-readtable-error
+               (gnus-message 2 "nnreddit-rpc-wait: %s DATA: %s"
+                             (error-message-string err) (cdr err))
+               (erase-buffer)
+               (cl-return nil))
               (json-error
                (gnus-message 2 "nnreddit-rpc-wait: %s" (error-message-string err))
                (erase-buffer)
