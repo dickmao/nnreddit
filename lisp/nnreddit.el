@@ -563,7 +563,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
           (insert
            "Newsgroups: " group "\n"
            "Subject: " (mail-header-subject mail-header)  "\n"
-           "From: " (mail-header-from mail-header) "\n"
+           "From: " (or (mail-header-from mail-header) "nobody") "\n"
            "Date: " (mail-header-date mail-header) "\n"
            "Message-ID: " (mail-header-id mail-header) "\n"
            "References: " (mail-header-references mail-header) "\n"
@@ -715,9 +715,14 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                   (if (plist-get result :error)
                       (signal 'json-error (plist-get result :error))
                     (cl-return (plist-get result :result))))
+              (json-readtable-error
+               (gnus-message 2 "nnreddit-rpc-wait: %s DATA: %s"
+                             (error-message-string err) (cdr err))
+               (erase-buffer)
+               (cl-return nil))
               (json-error
-               (gnus-message 2 "nnreddit-rpc-wait: %s DATA: %s" (error-message-string err)
-                             (cdr err))
+               (gnus-message 2 "nnreddit-rpc-wait: %s" (error-message-string err))
+               (erase-buffer)
                (cl-return nil)))))))
 
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
