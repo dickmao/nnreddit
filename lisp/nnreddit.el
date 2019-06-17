@@ -739,7 +739,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                  (gnus-message 5 "nnreddit-rpc-request: %s (response sofar: %s)"
                                                (error-message-string err) (buffer-string))
                                  nil))))
-               do (accept-process-output proc 6)
+               do (accept-process-output proc 6 0)
                finally return
                (cond ((null result)
                       (error "nnreddit-rpc-request: response timed out"))
