@@ -712,8 +712,8 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                               (condition-case err
                                   (setq result (json-read-from-string (buffer-string)))
                                 (json-readtable-error
-                                 (gnus-message 3 "nnreddit-rpc-wait: %s DATA: %s"
-                                               (error-message-string err) (cdr err))
+                                 (gnus-message 3 "nnreddit-rpc-wait: %s (response sofar: %s)"
+                                               (error-message-string err) (buffer-string))
                                  (setq result `(:error ,(error-message-string err)))
                                  (erase-buffer)
                                  t)
