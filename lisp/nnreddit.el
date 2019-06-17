@@ -711,6 +711,12 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                          (and (not (zerop (length (buffer-string))))
                               (condition-case err
                                   (setq result (json-read-from-string (buffer-string)))
+                                (json-readtable-error
+                                 (gnus-message 3 "nnreddit-rpc-wait: %s DATA: %s"
+                                               (error-message-string err) (cdr err))
+                                 (setq result `(:error ,(error-message-string err)))
+                                 (erase-buffer)
+                                 t)
                                 (json-error
                                  (gnus-message 5 "nnreddit-rpc-wait: %s (response sofar: %s)"
                                                (error-message-string err) (buffer-string))
@@ -720,7 +726,8 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                (cond ((null result)
                       (error "nnreddit-rpc-wait: response timed out"))
                      ((plist-get result :error)
-                      (error "nnreddit-rpc-wait: %s" (plist-get result :error)))
+                      (gnus-message 2 "nnreddit-rpc-wait: %s" (plist-get result :error))
+                      nil)
                      (t (plist-get result :result)))))))
 
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
