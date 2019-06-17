@@ -140,6 +140,7 @@
   "Jump to the REALNAME subreddit."
   (interactive (list (read-no-blanks-input "Subreddit: r/")))
   (let ((group (gnus-group-full-name realname "nnreddit")))
+    (gnus-activate-group group t)
     (gnus-group-read-group t t group)))
 
 (defsubst nnreddit-novote ()
@@ -207,9 +208,6 @@ Normalize it to \"nnreddit-default\"."
        ((symbolp head) `(if ,head ,rest))
        ((= (length head) 1) `(if ,(car head) ,rest))
        (t `(let (,head) (if ,(car head) ,rest)))))))
-
-(defvar nnreddit-scanned-hashtb (gnus-make-hashtable)
-  "Group (subreddit) string -> boolean.")
 
 (defvar nnreddit-headers-hashtb (gnus-make-hashtable)
   "Group (subreddit) string -> interleaved submissions and comments sorted by created time.")
@@ -291,15 +289,24 @@ Normalize it to \"nnreddit-default\"."
       (nnheader-replace-header "score" new-score))
     (nnreddit-rpc-call nil nil "vote" article-name vote)))
 
+(defsubst nnreddit--gate (&optional group)
+  "Apply our minor modes only when the following conditions hold for GROUP."
+  (unless group
+    (setq group gnus-newsgroup-name))
+  (and (stringp group)
+       (listp (gnus-group-method group))
+       (eq 'nnreddit (car (gnus-group-method group)))))
+
 (defun nnreddit-update-subscription (group level oldlevel &optional _previous)
   "Nnreddit `gnus-group-change-level' callback of GROUP to LEVEL from OLDLEVEL."
-  (let ((old-subbed-p (<= oldlevel gnus-level-default-subscribed))
-        (new-subbed-p (<= level gnus-level-default-subscribed)))
-    (unless (eq old-subbed-p new-subbed-p)
-      ;; afaict, praw post() doesn't return status
-      (if new-subbed-p
-          (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name group))
-        (nnreddit-rpc-call nil nil "unsubscribe" (gnus-group-real-name group))))))
+  (when (nnreddit--gate group)
+    (let ((old-subbed-p (<= oldlevel gnus-level-default-subscribed))
+          (new-subbed-p (<= level gnus-level-default-subscribed)))
+      (unless (eq old-subbed-p new-subbed-p)
+        ;; afaict, praw post() doesn't return status
+        (if new-subbed-p
+            (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name group))
+          (nnreddit-rpc-call nil nil "unsubscribe" (gnus-group-real-name group)))))))
 
 (defun nnreddit-rpc-kill (&optional server)
   "Kill the jsonrpc process named SERVER."
@@ -402,12 +409,9 @@ Normalize it to \"nnreddit-default\"."
 Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet again."
   (nnreddit--normalize-server)
   (nnreddit--with-group group
-    (gnus-sethash group nil nnreddit-scanned-hashtb)
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s..." group)
-    (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))))
+    (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))) t)
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
-    (with-current-buffer nntp-server-buffer
-      (gnus-sethash group (buffer-string) nnreddit-scanned-hashtb))
     t))
 
 ;; gnus-group-select-group
@@ -421,26 +425,90 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 ;;             nnreddit-request-group
 (deffoo nnreddit-request-group (group &optional server _fast info)
   (nnreddit--normalize-server)
-  ;; (nnreddit-close-server server)
   (nnreddit--with-group group
-    (nnreddit-aif (gnus-gethash-safe group nnreddit-scanned-hashtb)
-        (progn
-          (gnus-message 7 "nnreddit-request-group: reuse %s" it)
-          (nnheader-insert "%s" it)
-          (gnus-sethash group nil nnreddit-scanned-hashtb))
-      (let* ((info
-              (or info
-                  (gnus-get-info gnus-newsgroup-name)
-                  (list group
-                        gnus-level-default-subscribed
-                        nil nil
-                        (gnus-method-simplify (gnus-group-method gnus-newsgroup-name)))))
-             (params (gnus-info-params info))
-             (newsrc-read-ranges (gnus-info-read info))
-             (newsrc-seen-cons (gnus-group-parameter-value params 'last-seen t))
-             (newsrc-seen-index (car newsrc-seen-cons))
-             (newsrc-seen-id (cdr newsrc-seen-cons))
-             (comments (nnreddit-rpc-call server nil "comments" group))
+    (let* ((info
+            (or info
+                (gnus-get-info gnus-newsgroup-name)
+                (list group
+                      gnus-level-default-subscribed
+                      nil nil
+                      (gnus-method-simplify (gnus-group-method gnus-newsgroup-name)))))
+           (params (gnus-info-params info))
+           (newsrc-read-ranges (gnus-info-read info))
+           (newsrc-seen-cons (gnus-group-parameter-value params 'last-seen t))
+           (newsrc-seen-index (car newsrc-seen-cons))
+           (newsrc-seen-id (cdr newsrc-seen-cons)))
+      (let* ((headers (nnreddit-get-headers group))
+             (num-headers (length headers))
+             (status (format "211 %d %d %d %s" num-headers 1 num-headers group)))
+        (gnus-message 7 "nnreddit-request-group: %s" status)
+        (nnheader-insert "%s\n" status)
+
+        ;; remind myself how this works:
+        ;; old-praw (1 - 20=emkdjrx)
+        ;; read-ranges (1 - 10)                   (15 - 20)
+        ;; unread-ranges       (11, 12, 13, 14)
+        ;; new-praw    (12 13 14 15 16 17 18 19 20 - 100)
+        ;; 20=emkdjrx in old-praw is 9=emkdjrx in new-praw.  index shift is 20-9=+11
+        ;; new-unread-ranges   (0,  1,   2,  3)
+        ;; new-read-ranges                        (4 - 9)
+        (when (gnus-group-entry gnus-newsgroup-name)
+          ;; seen-indices are one-indexed !
+          (let* ((newsrc-seen-index-now
+                  (nnreddit-aif (seq-position
+                                 headers
+                                 newsrc-seen-id
+                                 (lambda (plst newsrc-seen-id)
+                                   (or (null newsrc-seen-id)
+                                       (>= (nnreddit--base10 (plist-get plst :id))
+                                           (nnreddit--base10 newsrc-seen-id)))))
+                      (1+ it) 0))
+                 (updated-seen-index (- num-headers
+                                        (nnreddit-aif
+                                            (seq-position (reverse headers) nil
+                                                          (lambda (plst _e)
+                                                            (not (plist-get plst :title))))
+                                            it -1)))
+                 (updated-seen-id (nnreddit-aif (nth (1- updated-seen-index) headers)
+                                      (plist-get it :id) ""))
+                 (delta (if newsrc-seen-index
+                            (max 0 (- newsrc-seen-index newsrc-seen-index-now))
+                          0))
+                 (newsrc-read-ranges-shifted
+                  (cl-remove-if-not (lambda (e)
+                                      (cond ((numberp e) (> e 0))
+                                            (t (> (cdr e) 0))))
+                                    (mapcar (lambda (e)
+                                              (cond ((numberp e) (- e delta))
+                                                    (t `(,(max 1 (- (car e) delta)) .
+                                                         ,(- (cdr e) delta)))))
+                                            newsrc-read-ranges))))
+            (gnus-message 7 "nnreddit-request-group: seen-id=%s          seen-index=%s -> %s"
+                          newsrc-seen-id newsrc-seen-index newsrc-seen-index-now)
+            (gnus-message 7 "nnreddit-request-group: seen-id-to-be=%s seen-index-to-be=%s delta=%d"
+                          updated-seen-id updated-seen-index delta)
+            (gnus-message 7 "nnreddit-request-group: read-ranges=%s shifted-read-ranges=%s"
+                          newsrc-read-ranges newsrc-read-ranges-shifted)
+            (gnus-info-set-read info newsrc-read-ranges-shifted)
+            (gnus-info-set-marks
+             info
+             (append (assq-delete-all 'seen (gnus-info-marks info))
+                     (list `(seen (1 . ,num-headers)))))
+            (while (assq 'last-seen params)
+              (gnus-alist-pull 'last-seen params))
+            (gnus-info-set-params
+             info
+             (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
+             t)
+            (gnus-set-info gnus-newsgroup-name info)
+            (gnus-message 7 "nnreddit-request-group: new info=%s" info)))))
+    t))
+
+(deffoo nnreddit-request-scan (&optional group server)
+  (nnreddit--normalize-server)
+  (unless (null group)
+    (nnreddit--with-group group
+      (let* ((comments (nnreddit-rpc-call server nil "comments" group))
              (raw-submissions (nnreddit-rpc-call server nil "submissions" group))
              (submissions (and (> (length comments) 0)
                                (nnreddit--filter-after
@@ -448,77 +516,11 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                                 raw-submissions))))
         (seq-doseq (e comments)
           (nnreddit-add-entry nnreddit-refs-hashtb e :parent_id)) ;; :parent_id is fullname
-
         (seq-doseq (e (vconcat submissions comments))
           (nnreddit-add-entry nnreddit-authors-hashtb e :author))
-
-        (nnreddit-sort-append-headers group submissions comments)
-
-        (let* ((headers (nnreddit-get-headers group))
-               (num-headers (length headers))
-               (status (format "211 %d %d %d %s" num-headers 1 num-headers group)))
-          (gnus-message 7 "nnreddit-request-group: %s" status)
-          (nnheader-insert "%s\n" status)
-
-          ;; remind myself how this works:
-          ;; old-praw (1 - 20=emkdjrx)
-          ;; read-ranges (1 - 10)                   (15 - 20)
-          ;; unread-ranges       (11, 12, 13, 14)
-          ;; new-praw    (12 13 14 15 16 17 18 19 20 - 100)
-          ;; 20=emkdjrx in old-praw is 9=emkdjrx in new-praw.  index shift is 20-9=+11
-          ;; new-unread-ranges   (0,  1,   2,  3)
-          ;; new-read-ranges                        (4 - 9)
-          (when (gnus-group-entry gnus-newsgroup-name)
-            ;; seen-indices are one-indexed !
-            (let* ((newsrc-seen-index-now
-                    (nnreddit-aif (seq-position
-                                   headers
-                                   newsrc-seen-id
-                                   (lambda (plst newsrc-seen-id)
-                                     (or (null newsrc-seen-id)
-                                         (>= (nnreddit--base10 (plist-get plst :id))
-                                             (nnreddit--base10 newsrc-seen-id)))))
-                        (1+ it) 0))
-                   (updated-seen-index (- num-headers
-                                          (nnreddit-aif
-                                              (seq-position (reverse headers) nil
-                                                            (lambda (plst _e)
-                                                              (not (plist-get plst :title))))
-                                              it -1)))
-                   (updated-seen-id (nnreddit-aif (nth (1- updated-seen-index) headers)
-                                        (plist-get it :id) ""))
-                   (delta (if newsrc-seen-index
-                              (max 0 (- newsrc-seen-index newsrc-seen-index-now))
-                            0))
-                   (newsrc-read-ranges-shifted
-                    (cl-remove-if-not (lambda (e)
-                                        (cond ((numberp e) (> e 0))
-                                              (t (> (cdr e) 0))))
-                                      (mapcar (lambda (e)
-                                                (cond ((numberp e) (- e delta))
-                                                      (t `(,(max 1 (- (car e) delta)) .
-                                                           ,(- (cdr e) delta)))))
-                                              newsrc-read-ranges))))
-              (gnus-message 7 "nnreddit-request-group: seen-id=%s          seen-index=%s -> %s"
-                            newsrc-seen-id newsrc-seen-index newsrc-seen-index-now)
-              (gnus-message 7 "nnreddit-request-group: seen-id-to-be=%s seen-index-to-be=%s delta=%d"
-                            updated-seen-id updated-seen-index delta)
-              (gnus-message 7 "nnreddit-request-group: read-ranges=%s shifted-read-ranges=%s"
-                            newsrc-read-ranges newsrc-read-ranges-shifted)
-              (gnus-info-set-read info newsrc-read-ranges-shifted)
-              (gnus-info-set-marks
-               info
-               (append (assq-delete-all 'seen (gnus-info-marks info))
-                       (list `(seen (1 . ,num-headers)))))
-              (while (assq 'last-seen params)
-                (gnus-alist-pull 'last-seen params))
-              (gnus-info-set-params
-               info
-               (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
-               t)
-              (gnus-set-info gnus-newsgroup-name info)
-              (gnus-message 7 "nnreddit-request-group: new info=%s" info))))))
-    t))
+        (gnus-message 5 "nnreddit-request-scan: %s: +%s comments +%s submissions"
+                      group (length comments) (length submissions))
+        (nnreddit-sort-append-headers group submissions comments)))))
 
 (defsubst nnreddit--make-message-id (fullname)
   "Construct a valid Gnus message id from FULLNAME."
@@ -645,9 +647,8 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
               (let ((group (gnus-group-full-name realname '("nnreddit" (or server "")))))
                 (erase-buffer)
                 (gnus-message 5 "nnreddit-request-list: scanning %s..." realname)
-                (gnus-activate-group group)
+                (gnus-activate-group group t)
                 (gnus-message 5 "nnreddit-request-list: scanning %s...done" realname)
-                (gnus-sethash realname (buffer-string) nnreddit-scanned-hashtb)
                 (gnus-group-unsubscribe-group group gnus-level-default-subscribed t)))
             groups)
       (erase-buffer)
@@ -664,7 +665,6 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                   (car (process-command process))
                   (replace-regexp-in-string "\n$" "" event))
     (setq nnreddit-headers-hashtb (gnus-make-hashtable))
-    (nnreddit-clear-scanned)
     (gnus-backlog-shutdown)))
 
 (defun nnreddit-rpc-get (&optional server)
@@ -701,29 +701,34 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 
 (defun nnreddit-rpc-wait (connection)
   "Wait for the response from CONNECTION and return it, or signal the error."
-  (with-current-buffer (process-buffer (json-rpc-process connection))
-    (with-local-quit
-      (cl-loop until (or (not (zerop (length (buffer-string))))
-                         (not (json-rpc-live-p connection)))
-            do (accept-process-output)
-            finally
-            (goto-char (point-min))
-            (condition-case err
-                (let* ((json-object-type 'plist)
-                       (json-key-type 'keyword)
-                       (result (json-read)))
-                  (if (plist-get result :error)
-                      (signal 'json-error (plist-get result :error))
-                    (cl-return (plist-get result :result))))
-              (json-readtable-error
-               (gnus-message 2 "nnreddit-rpc-wait: %s DATA: %s"
-                             (error-message-string err) (cdr err))
-               (erase-buffer)
-               (cl-return nil))
-              (json-error
-               (gnus-message 2 "nnreddit-rpc-wait: %s" (error-message-string err))
-               (erase-buffer)
-               (cl-return nil)))))))
+  (let ((proc (json-rpc-process connection))
+        (json-object-type 'plist)
+        (json-key-type 'keyword))
+    (with-current-buffer (process-buffer proc)
+      (cl-loop repeat 10
+               with result
+               until (or (not (json-rpc-live-p connection))
+                         (and (not (zerop (length (buffer-string))))
+                              (condition-case err
+                                  (setq result (json-read-from-string (buffer-string)))
+                                (json-readtable-error
+                                 (gnus-message 3 "nnreddit-rpc-wait: %s (response sofar: %s)"
+                                               (error-message-string err) (buffer-string))
+                                 (setq result `(:error ,(error-message-string err)))
+                                 (erase-buffer)
+                                 t)
+                                (json-error
+                                 (gnus-message 5 "nnreddit-rpc-wait: %s (response sofar: %s)"
+                                               (error-message-string err) (buffer-string))
+                                 nil))))
+               do (accept-process-output proc 6 0)
+               finally return
+               (cond ((null result)
+                      (error "nnreddit-rpc-wait: response timed out"))
+                     ((plist-get result :error)
+                      (gnus-message 2 "nnreddit-rpc-wait: %s" (plist-get result :error))
+                      nil)
+                     (t (plist-get result :result)))))))
 
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
   "Send to CONNECTION a request with generator KWARGS calling METHOD ARGS.  `json-rpc--request' assumes HTTP transport which jsonrpyc does not."
@@ -795,16 +800,12 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 
 (defun nnreddit-article-mode-activate ()
   "Augment the `gnus-article-mode-map' conditionally."
-  (when (and (stringp gnus-newsgroup-name)
-             (listp (gnus-group-method gnus-newsgroup-name))
-             (eq 'nnreddit (car (gnus-group-method gnus-newsgroup-name))))
+  (when (nnreddit--gate)
     (nnreddit-article-mode)))
 
 (defun nnreddit-summary-mode-activate ()
   "Shadow some bindings in `gnus-summary-mode-map' conditionally."
-  (when (and (stringp gnus-newsgroup-name)
-             (listp (gnus-group-method gnus-newsgroup-name))
-             (eq 'nnreddit (car (gnus-group-method gnus-newsgroup-name))))
+  (when (nnreddit--gate)
     (nnreddit-summary-mode)))
 
 (defun nnreddit-group-mode-activate ()
@@ -812,32 +813,13 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   (setq gnus-group-change-level-function 'nnreddit-update-subscription)
   (nnreddit-group-mode))
 
-(defun nnreddit-clear-scanned (&optional group)
-  "Clear the don't-read-again flag for GROUP."
-  (if group
-      (when (gnus-gethash-safe group nnreddit-scanned-hashtb)
-        ;; avoid littering hashtb if GROUP is mispelled
-        (gnus-sethash group nil nnreddit-scanned-hashtb))
-    (setq nnreddit-scanned-hashtb (gnus-make-hashtable))))
-
 ;; I believe I did try buffer-localizing hooks, and it wasn't sufficient
 (add-hook 'gnus-article-mode-hook 'nnreddit-article-mode-activate)
 (add-hook 'gnus-group-mode-hook 'nnreddit-group-mode-activate)
 (add-hook 'gnus-summary-mode-hook 'nnreddit-summary-mode-activate)
-(add-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)
-
-;; Without this, gnus-group-get-new-news-this-group (M-g)
-;; will wastefully cause an un-M-g'ed group to rescan.
-(add-function
- :around (symbol-function 'gnus-group-get-new-news-this-group)
- (lambda (f &rest args)
-   (remove-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)
-   (apply f args)
-   (add-hook 'gnus-get-new-news-hook 'nnreddit-clear-scanned)))
 
 ;; `gnus-newsgroup-p' requires valid method post-mail to return t
 (add-to-list 'gnus-valid-select-methods '("nnreddit" post-mail) t)
-
 
 ;; Add prompting for replying to thread root to gnus-summary-followup.
 ;; The interactive spec of gnus-summary-followup is putatively preserved.

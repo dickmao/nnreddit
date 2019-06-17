@@ -28,22 +28,27 @@
 
 (require 'test)
 
-(defun after-scenario ()
-  )
+(defun cleanup ()
+  (let* ((newsrc-file gnus-current-startup-file)
+         (quick-file (concat newsrc-file ".eld")))
+    (when (file-exists-p quick-file)
+      (message "Deleting %s" quick-file)
+      (delete-file quick-file))))
 
 (Setup
  )
 
 (After
- (after-scenario))
+ )
 
 (Teardown
+ (cleanup)
 )
 
 (Fail
  (if noninteractive
      (progn
-       (after-scenario)
-       (Then "end recordings"))
+       (Then "end recordings")
+       (cleanup))
    (backtrace)
    (keyboard-quit))) ;; useful to prevent emacs from quitting
