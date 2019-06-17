@@ -76,7 +76,6 @@ test: test-compile test-unit test-int
 
 .PHONY: test-int
 test-int:
-	rm -f tests/.newsrc.eld
 	python -m pytest tests/test_oauth.py
 	rm -f tests/.newsrc.eld
 	cask exec ecukes --reporter magnars

@@ -296,7 +296,10 @@ Normalize it to \"nnreddit-default\"."
     (unless (eq old-subbed-p new-subbed-p)
       ;; afaict, praw post() doesn't return status
       (if new-subbed-p
-          (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name group))
+          (progn
+            (message "HOLLA %s %s %s" group oldlevel level)
+            (backtrace)
+            (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name group)))
         (nnreddit-rpc-call nil nil "unsubscribe" (gnus-group-real-name group))))))
 
 (defun nnreddit-rpc-kill (&optional server)
