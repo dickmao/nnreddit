@@ -289,18 +289,24 @@ Normalize it to \"nnreddit-default\"."
       (nnheader-replace-header "score" new-score))
     (nnreddit-rpc-call nil nil "vote" article-name vote)))
 
+(defsubst nnreddit--gate (&optional group)
+  "Apply our minor modes only when the following conditions hold for GROUP."
+  (unless group
+    (setq group gnus-newsgroup-name))
+  (and (stringp group)
+       (listp (gnus-group-method group))
+       (eq 'nnreddit (car (gnus-group-method group)))))
+
 (defun nnreddit-update-subscription (group level oldlevel &optional _previous)
   "Nnreddit `gnus-group-change-level' callback of GROUP to LEVEL from OLDLEVEL."
-  (let ((old-subbed-p (<= oldlevel gnus-level-default-subscribed))
-        (new-subbed-p (<= level gnus-level-default-subscribed)))
-    (unless (eq old-subbed-p new-subbed-p)
-      ;; afaict, praw post() doesn't return status
-      (if new-subbed-p
-          (progn
-            (message "HOLLA %s %s %s" group oldlevel level)
-            (backtrace)
-            (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name group)))
-        (nnreddit-rpc-call nil nil "unsubscribe" (gnus-group-real-name group))))))
+  (when (nnreddit--gate group)
+    (let ((old-subbed-p (<= oldlevel gnus-level-default-subscribed))
+          (new-subbed-p (<= level gnus-level-default-subscribed)))
+      (unless (eq old-subbed-p new-subbed-p)
+        ;; afaict, praw post() doesn't return status
+        (if new-subbed-p
+            (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name group))
+          (nnreddit-rpc-call nil nil "unsubscribe" (gnus-group-real-name group)))))))
 
 (defun nnreddit-rpc-kill (&optional server)
   "Kill the jsonrpc process named SERVER."
@@ -787,16 +793,12 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 
 (defun nnreddit-article-mode-activate ()
   "Augment the `gnus-article-mode-map' conditionally."
-  (when (and (stringp gnus-newsgroup-name)
-             (listp (gnus-group-method gnus-newsgroup-name))
-             (eq 'nnreddit (car (gnus-group-method gnus-newsgroup-name))))
+  (when (nnreddit--gate)
     (nnreddit-article-mode)))
 
 (defun nnreddit-summary-mode-activate ()
   "Shadow some bindings in `gnus-summary-mode-map' conditionally."
-  (when (and (stringp gnus-newsgroup-name)
-             (listp (gnus-group-method gnus-newsgroup-name))
-             (eq 'nnreddit (car (gnus-group-method gnus-newsgroup-name))))
+  (when (nnreddit--gate)
     (nnreddit-summary-mode)))
 
 (defun nnreddit-group-mode-activate ()
