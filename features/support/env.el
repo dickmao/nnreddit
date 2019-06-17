@@ -46,6 +46,9 @@
 )
 
 (Fail
- (unless noninteractive
+ (if noninteractive
+     (progn
+       (Then "end recordings")
+       (Teardown))
    (backtrace)
    (keyboard-quit))) ;; useful to prevent emacs from quitting
