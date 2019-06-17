@@ -263,7 +263,9 @@ Normalize it to \"nnreddit-default\"."
   :group 'nnreddit)
 
 (defsubst nnreddit-rpc-call (server generator_kwargs method &rest args)
-  "Make jsonrpc call to SERVER with GENERATOR_KWARGS using METHOD ARGS."
+  "Make jsonrpc call to SERVER with GENERATOR_KWARGS using METHOD ARGS.
+
+Process stays the same, but the jsonrpc connection (a cheap struct) gets reinstantiated with every call."
   (nnreddit--normalize-server)
   (let* ((connection (json-rpc--create :process (nnreddit-rpc-get server)
                                        :host "localhost"
@@ -699,37 +701,6 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
       (push proc nnreddit-processes))
     proc))
 
-(defun nnreddit-rpc-wait (connection)
-  "Wait for the response from CONNECTION and return it, or signal the error."
-  (let ((proc (json-rpc-process connection))
-        (json-object-type 'plist)
-        (json-key-type 'keyword))
-    (with-current-buffer (process-buffer proc)
-      (cl-loop repeat 10
-               with result
-               until (or (not (json-rpc-live-p connection))
-                         (and (not (zerop (length (buffer-string))))
-                              (condition-case err
-                                  (setq result (json-read-from-string (buffer-string)))
-                                (json-readtable-error
-                                 (gnus-message 3 "nnreddit-rpc-wait: %s (response sofar: %s)"
-                                               (error-message-string err) (buffer-string))
-                                 (setq result `(:error ,(error-message-string err)))
-                                 (erase-buffer)
-                                 t)
-                                (json-error
-                                 (gnus-message 5 "nnreddit-rpc-wait: %s (response sofar: %s)"
-                                               (error-message-string err) (buffer-string))
-                                 nil))))
-               do (accept-process-output proc 6 0)
-               finally return
-               (cond ((null result)
-                      (error "nnreddit-rpc-wait: response timed out"))
-                     ((plist-get result :error)
-                      (gnus-message 2 "nnreddit-rpc-wait: %s" (plist-get result :error))
-                      nil)
-                     (t (plist-get result :result)))))))
-
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
   "Send to CONNECTION a request with generator KWARGS calling METHOD ARGS.  `json-rpc--request' assumes HTTP transport which jsonrpyc does not."
   (unless (hash-table-p kwargs)
@@ -738,12 +709,42 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
          (request `(:method ,method
                     :id ,id
                     :params (:args ,(apply json-array-type args) :kwargs ,kwargs)))
-         (process (json-rpc-process (json-rpc-ensure connection)))
-         (encoded (json-encode (nconc '(:jsonrpc "2.0") request))))
-    (with-current-buffer (process-buffer process)
-      (erase-buffer))
-    (process-send-string process (concat encoded "\n"))
-    (nnreddit-rpc-wait connection)))
+         (proc (json-rpc-process (json-rpc-ensure connection)))
+         (encoded (json-encode (append '(:jsonrpc "2.0") request)))
+         (json-object-type 'plist)
+         (json-key-type 'keyword))
+    (with-current-buffer (process-buffer proc)
+      (erase-buffer)
+      (gnus-message 7 "nnreddit-rpc-request: send %s" encoded)
+      (process-send-string proc (concat encoded "\n"))
+      (cl-loop repeat 10
+               with result
+               until (or (not (json-rpc-live-p connection))
+                         (and (not (zerop (length (buffer-string))))
+                              (condition-case err
+                                  (setq result (json-read-from-string (buffer-string)))
+                                (error
+                                 (let* ((resp (if (< (length (buffer-string)) 100)
+                                                  (buffer-string)
+                                                (format "%s...%s"
+                                                        (cl-subseq (buffer-string) 0 50)
+                                                        (cl-subseq (buffer-string) -50)))))
+                                   (setq result
+                                         `(:error ,(format "%s on %s"
+                                                           (error-message-string err)
+                                                           resp))))
+                                 nil))))
+               do (accept-process-output proc 6 0)
+               finally return
+               (cond ((null result)
+                      (error "nnreddit-rpc-request: response timed out"))
+                     ((plist-get result :error)
+                      (error "nnreddit-rpc-request: %s" (plist-get result :error)))
+                     (t
+                      (gnus-message 7 "nnreddit-rpc-request: recv ...%s"
+                                    (cl-subseq (buffer-string)
+                                               (- (min (length (buffer-string)) 50))))
+                      (plist-get result :result)))))))
 
 ;; C-c C-c from followup buffer
 ;; message-send-and-exit
