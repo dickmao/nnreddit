@@ -735,7 +735,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                                            resp))))
                                  (erase-buffer)
                                  t)
-                                (json-error
+                                (error
                                  (gnus-message 5 "nnreddit-rpc-request: %s (response sofar: %s)"
                                                (error-message-string err) (buffer-string))
                                  nil))))
@@ -746,7 +746,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                      ((plist-get result :error)
                       (error "nnreddit-rpc-request: %s" (plist-get result :error)))
                      (t
-                      (gnus-message 7 "nnreddit-rpc-request: recv %s"
+                      (gnus-message 7 "nnreddit-rpc-request: recv ...%s"
                                     (cl-subseq (buffer-string)
                                                (- (min (length (buffer-string)) 50))))
                       (plist-get result :result)))))))
