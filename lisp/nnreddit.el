@@ -723,7 +723,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                          (and (not (zerop (length (buffer-string))))
                               (condition-case err
                                   (setq result (json-read-from-string (buffer-string)))
-                                (json-readtable-error
+                                (error
                                  (let* ((resp (if (< (length (buffer-string)) 100)
                                                   (buffer-string)
                                                 (format "%s...%s"
@@ -733,11 +733,6 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                          `(:error ,(format "%s on %s"
                                                            (error-message-string err)
                                                            resp))))
-                                 (erase-buffer)
-                                 t)
-                                (error
-                                 (gnus-message 5 "nnreddit-rpc-request: %s (response sofar: %s)"
-                                               (error-message-string err) (buffer-string))
                                  nil))))
                do (accept-process-output proc 6 0)
                finally return
