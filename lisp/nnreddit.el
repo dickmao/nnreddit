@@ -78,8 +78,6 @@
 (require 'mm-url)
 (require 'cl-lib)
 
-(defalias 'caddr #'cl-caddr "message.el uses caddr, and I'm not allowed to require 'cl")
-
 (nnoo-declare nnreddit)
 
 ;; keymaps made by `define-prefix-command' in `gnus-define-keys-1'
