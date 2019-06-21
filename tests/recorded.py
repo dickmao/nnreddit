@@ -45,7 +45,7 @@ with Betamax.configure() as config:
     config.before_record(callback=scrub)
 
 def recorded(func):
-    """Intercept point for Betamax.  As a decorator for an AuthenticatedReddit method, it disallowed reentrant calls to that method under record_mode: once."""
+    """Intercept point for Betamax.  As a decorator for an authenticated_reddit method, it disallowed reentrant calls to that method under record_mode: once."""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         reddit = args[0]
