@@ -10,7 +10,7 @@ import sys
 import jsonrpyc
 import argparse
 
-from .AuthenticatedReddit import AuthenticatedReddit
+from .authenticated_reddit import authenticated_reddit
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--log", help="log filename")
@@ -21,6 +21,6 @@ stdout = sys.stdout
 if __name__ != "__main__":
      sys.stdout = sys.stderr = open(os.devnull, "w")
 
-jsonrpyc.RPC(target=AuthenticatedReddit(check_for_updates=False,
-                                        log_prefix=args.log),
+jsonrpyc.RPC(target=authenticated_reddit(check_for_updates=False,
+                                         log_prefix=args.log),
              stdin=stdin, stdout=stdout)

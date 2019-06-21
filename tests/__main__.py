@@ -17,7 +17,7 @@ except OSError:
     if not os.path.isdir(os.environ["XDG_DATA_HOME"]):
         raise
 
-from nnreddit.AuthenticatedReddit import AuthenticatedReddit
+from nnreddit.authenticated_reddit import authenticated_reddit
 from rtv.config import TOKEN
 
 stdin = sys.stdin
@@ -36,9 +36,9 @@ super_secret = os.path.join(os.path.dirname(TOKEN), 'super-secret-refresh-token'
 kwargs = { 'token_file': (super_secret if os.path.exists(super_secret) else TOKEN),
            'history_file': mkstemp(dir='/var/tmp')[1],
 }
-jsonrpyc.RPC(target=AuthenticatedReddit(log_prefix=os.path.join(logdir, 'test_py.'),
-                                        decode_html_entities=False,
-                                        disable_update_check=True,
-                                        check_for_updates=False,
-                                        **kwargs),
+jsonrpyc.RPC(target=authenticated_reddit(log_prefix=os.path.join(logdir, 'test_py.'),
+                                         decode_html_entities=False,
+                                         disable_update_check=True,
+                                         check_for_updates=False,
+                                         **kwargs),
              stdin=stdin, stdout=stdout)

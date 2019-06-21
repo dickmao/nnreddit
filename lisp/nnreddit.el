@@ -78,8 +78,6 @@
 (require 'mm-url)
 (require 'cl-lib)
 
-(defalias 'caddr #'cl-caddr "message.el uses caddr, and I'm not allowed to require 'cl")
-
 (nnoo-declare nnreddit)
 
 ;; keymaps made by `define-prefix-command' in `gnus-define-keys-1'
@@ -87,7 +85,12 @@
 (defvar nnreddit-group-mode-map)
 
 ;; keymaps I make myself
-(defvar nnreddit-summary-mode-map (make-sparse-keymap))
+(defvar nnreddit-summary-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "r" 'gnus-summary-followup)
+    (define-key map "R" 'gnus-summary-followup-with-original)
+    (define-key map "F" 'gnus-summary-followup-with-original)
+    map))
 
 (defcustom nnreddit-log-rpc nil
   "Turn on PRAW logging."
@@ -120,11 +123,6 @@
 "
   :lighter " Reddit"
   :keymap nnreddit-summary-mode-map)
-
-(let ((map nnreddit-summary-mode-map))
-  (define-key map "r" 'gnus-summary-followup)
-  (define-key map "R" 'gnus-summary-followup-with-original)
-  (define-key map "F" 'gnus-summary-followup-with-original))
 
 (define-minor-mode nnreddit-group-mode
   "Add `R-g' go-to-subreddit binding to *Group*.

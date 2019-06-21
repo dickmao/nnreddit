@@ -28,6 +28,7 @@ README.rst: README.in.rst lisp/nnreddit.el
 .PHONY: clean
 clean:
 	cask clean-elc
+	pyclean nnreddit
 	python setup.py clean
 	rm -f tests/log/*
 	rm -rf tests/test-install

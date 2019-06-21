@@ -52,7 +52,7 @@ else:
 
 __version__ = '0.1.0'
 
-class AuthenticatedReddit(Reddit):
+class authenticated_reddit(Reddit):
     @staticmethod
     def open_url_silent(url):
         stdout, stderr = os.dup(1), os.dup(2)
@@ -71,9 +71,9 @@ class AuthenticatedReddit(Reddit):
 
     def __init__(self, **kwargs):
         log_level = kwargs.pop('log_level', logging.NOTSET)
-        logging.basicConfig(level=log_level, \
-                            filename='/dev/null', \
-                            format='%(asctime)s %(levelname)s %(message)s', \
+        logging.basicConfig(level=log_level,
+                            filename='/dev/null',
+                            format='%(asctime)s %(levelname)s %(message)s',
                             datefmt="%Y-%m-%d %H:%M:%S")
         log_prefix = kwargs.pop('log_prefix', None)
         if log_prefix:
@@ -98,7 +98,7 @@ class AuthenticatedReddit(Reddit):
         cfg.config['refresh_token'] = cfg.refresh_token
         logging.getLogger().debug("Refresh token: %s", cfg.token_file)
 
-        super(AuthenticatedReddit, self).__init__(**cfg.config)
+        super(authenticated_reddit, self).__init__(**cfg.config)
 
         if not cfg.refresh_token:
             self._core \
@@ -159,7 +159,7 @@ class AuthenticatedReddit(Reddit):
         for i in stream:
             if i is None:
                 break
-            result.append(AuthenticatedReddit.make_dict(i))
+            result.append(authenticated_reddit.make_dict(i))
         return result
 
     def recording_begin(self, cassette):
@@ -171,7 +171,7 @@ class AuthenticatedReddit(Reddit):
         return True
 
     def random_subreddit(self, nsfw=False):
-        sr = super(AuthenticatedReddit, self).random_subreddit(nsfw)
+        sr = super(authenticated_reddit, self).random_subreddit(nsfw)
         return sr.display_name
 
     def search(self, query, **generator_kwargs):
