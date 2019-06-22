@@ -50,7 +50,7 @@ test-install:
 	cd tests/test-install ; rm -f $(PKBUILD).tar.gz
 	cd tests/test-install/package-build-$(PKBUILD) ; make -s loaddefs
 	mkdir -p tests/test-install/recipes
-	cd tests/test-install/recipes ; curl -sfLOk https://raw.githubusercontent.com/melpa/melpa/master/recipes/nnreddit || cp -f ../../../recipe ./nnreddit
+	cd tests/test-install/recipes ; curl -sfLOk https://raw.githubusercontent.com/melpa/melpa/master/recipes/nnreddit || cp -f ../../../tools/recipe ./nnreddit
 	! ( emacs -Q --batch -L tests/test-install/package-build-$(PKBUILD) \
 	--eval "(require 'package-build)" \
 	--eval "(require 'subr-x)" \
