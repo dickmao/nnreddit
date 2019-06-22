@@ -38,7 +38,23 @@
 ;; root article    link or submission
 ;; articles        {root article, comments}
 
+(require 'nnoo)
+(require 'gnus)
+(require 'gnus-start)
+(require 'gnus-art)
+(require 'gnus-sum)
+(require 'gnus-msg)
+(require 'gnus-cite)
+(require 'gnus-srvr)
+(require 'gnus-cache)
+(require 'gnus-bcklg)
+(require 'python)
+(require 'json-rpc)
+(require 'mm-url)
+(require 'cl-lib)
 (require 'virtualenvwrapper)
+
+(nnoo-declare nnreddit)
 
 (defcustom nnreddit-python-command (if (equal system-type 'windows-nt)
                                        (or (executable-find "py")
@@ -77,23 +93,6 @@
 
 To facilitate upgrades, the name gloms a de facto version (the directory
 name where this file resides) and the `nnreddit-python-command'.")
-
-(require 'nnoo)
-(require 'gnus)
-(require 'gnus-start)
-(require 'gnus-art)
-(require 'gnus-sum)
-(require 'gnus-msg)
-(require 'gnus-cite)
-(require 'gnus-srvr)
-(require 'gnus-cache)
-(require 'gnus-bcklg)
-(require 'python)
-(require 'json-rpc)
-(require 'mm-url)
-(require 'cl-lib)
-
-(nnoo-declare nnreddit)
 
 ;; keymaps made by `define-prefix-command' in `gnus-define-keys-1'
 (defvar nnreddit-article-mode-map)
