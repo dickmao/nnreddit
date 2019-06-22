@@ -43,6 +43,7 @@ install:
       pyenv activate $TOXENV
     fi
   - pip install virtualenvwrapper
+  - pip install pylint
   - |
     if [ "x$TRAVIS_OS_NAME" = "xosx" ]; then
       source $HOME/.pyenv/versions/2.7.*/envs/py27/bin/virtualenvwrapper.sh

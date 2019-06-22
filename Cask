@@ -1,7 +1,7 @@
 (source melpa)
 
 (package-descriptor "lisp/nnreddit-pkg.el")
-(files "lisp/*.el" "setup.py" "requirements.txt" "nnreddit")
+(files "lisp/*.el" "setup.py" "nnreddit")
 
 (development
  (depends-on "ert-runner")
