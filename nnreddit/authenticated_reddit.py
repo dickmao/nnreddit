@@ -35,7 +35,6 @@ from rtv import docs
 testing = (sys.modules['__main__'].__package__ == 'tests')
 
 if testing:
-    from tests.recorded import recorded
     from tests.recorded import recording_begin
     from tests.recorded import recording_end
 else:
@@ -52,7 +51,7 @@ else:
 
 __version__ = '0.1.0'
 
-class authenticated_reddit(Reddit):
+class AuthenticatedReddit(Reddit):
     @staticmethod
     def open_url_silent(url):
         stdout, stderr = os.dup(1), os.dup(2)
@@ -98,7 +97,7 @@ class authenticated_reddit(Reddit):
         cfg.config['refresh_token'] = cfg.refresh_token
         logging.getLogger().debug("Refresh token: %s", cfg.token_file)
 
-        super(authenticated_reddit, self).__init__(**cfg.config)
+        super(AuthenticatedReddit, self).__init__(**cfg.config)
 
         if not cfg.refresh_token:
             self._core \
@@ -159,7 +158,7 @@ class authenticated_reddit(Reddit):
         for i in stream:
             if i is None:
                 break
-            result.append(authenticated_reddit.make_dict(i))
+            result.append(AuthenticatedReddit.make_dict(i))
         return result
 
     def recording_begin(self, cassette):
@@ -171,7 +170,7 @@ class authenticated_reddit(Reddit):
         return True
 
     def random_subreddit(self, nsfw=False):
-        sr = super(authenticated_reddit, self).random_subreddit(nsfw)
+        sr = super(AuthenticatedReddit, self).random_subreddit(nsfw)
         return sr.display_name
 
     def search(self, query, **generator_kwargs):

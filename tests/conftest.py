@@ -23,7 +23,7 @@ except OSError:
     if not os.path.isdir(os.environ["XDG_DATA_HOME"]):
         raise
 
-from nnreddit.authenticated_reddit import authenticated_reddit
+from nnreddit.authenticated_reddit import AuthenticatedReddit
 from rtv.config import TOKEN
 
 try:
@@ -115,7 +115,7 @@ def reddit(vcr, request):
                    'log_prefix': os.path.join(logdir, 'test_vcr.'),
                    'check_for_updates': False
         }
-        reddit = authenticated_reddit(decode_html_entities=False,
-                                      disable_update_check=True,
-                                      **kwargs)
+        reddit = AuthenticatedReddit(decode_html_entities=False,
+                                     disable_update_check=True,
+                                     **kwargs)
         yield reddit

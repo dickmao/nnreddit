@@ -20,8 +20,8 @@ setup(
         "nnreddit": ["templates/*"],
     },
     install_requires=[
-        "jsonrpyc",
-        "rtv",
-        "praw",
+        "jsonrpyc>=1.1.0",
+        "rtv>=1.26.0",
+        "praw>=6.2.0",
     ],
 )

@@ -38,30 +38,45 @@
 ;; root article    link or submission
 ;; articles        {root article, comments}
 
-;;; set up all-things-python on `package-install', `package-install-file'
-(eval-and-compile
-  (require 'virtualenvwrapper)
-  (defcustom nnreddit-python-command (if (equal system-type 'windows-nt)
-                                         (or (executable-find "py")
-                                             (executable-find "pythonw")
-                                             "python")
-                                       "python")
-    "what is python on your system."
-    :type (append '(choice)
-                  (let (result)
-                    (dolist (py '("python" "python2" "python3" "pythonw" "py")
-                                result)
-                      (setq result (append result `((const :tag ,py ,py))))))
-                  '((string :tag "Other")))
-    :group 'nnreddit)
-  (unless (member "nnreddit" (split-string (venv-list-virtualenvs)))
-    (venv-mkvirtualenv-using nnreddit-python-command "nnreddit")
-    (venv-with-virtualenv-shell-command "nnreddit"
-                                        (format "cd %s && pip install -r requirements.txt"
-                                                (file-name-directory (locate-library "nnreddit"))))
-    (venv-with-virtualenv-shell-command "nnreddit"
-                                        (format "cd %s && python setup.py install"
-                                                (file-name-directory (locate-library "nnreddit"))))))
+(require 'virtualenvwrapper)
+
+(defcustom nnreddit-python-command (if (equal system-type 'windows-nt)
+                                       (or (executable-find "py")
+                                           (executable-find "pythonw")
+                                           "python")
+                                     "python")
+  "Python executable name."
+  :type (append '(choice)
+                (let (result)
+                  (dolist (py '("python" "python2" "python3" "pythonw" "py")
+                              result)
+                    (setq result (append result `((const :tag ,py ,py))))))
+                '((string :tag "Other")))
+  :group 'nnreddit)
+
+(defconst nnreddit-venv
+  (unless noninteractive
+    (let* ((library-directory (file-name-directory (locate-library "nnreddit")))
+           (defacto-version (file-name-nondirectory
+                             (directory-file-name library-directory)))
+           (result (concat defacto-version "-" nnreddit-python-command)))
+      (prog1 result
+        (gnus-message 7 "nnreddit-venv: %s%s" venv-location result)
+        (unless (member result (split-string (venv-list-virtualenvs)))
+          (gnus-message 5 "nnreddit-venv: installing venv to %s..." result)
+          (condition-case err
+              (progn
+                (venv-mkvirtualenv-using nnreddit-python-command result)
+                (venv-with-virtualenv-shell-command
+                 result
+                 (format "cd %s && python setup.py install" library-directory)))
+            (error (venv-rmvirtualenv result)
+                   (error (error-message-string err))))
+          (gnus-message 5 "nnreddit-venv: installing venv to %s...done" result)))))
+  "Venv directory name in `venv-location'.
+
+To facilitate upgrades, the name gloms a de facto version (the directory
+name where this file resides) and the `nnreddit-python-command'.")
 
 (require 'nnoo)
 (require 'gnus)
@@ -254,11 +269,6 @@ Normalize it to \"nnreddit-default\"."
   "Garbage collect PRAW processes.")
 
 (nnoo-define-basics nnreddit)
-
-(defcustom nnreddit-use-virtualenv (not noninteractive)
-  "Talk to the the python module in filesystem space, not virtualenv space."
-  :type 'boolean
-  :group 'nnreddit)
 
 (defsubst nnreddit-rpc-call (server generator_kwargs method &rest args)
   "Make jsonrpc call to SERVER with GENERATOR_KWARGS using METHOD ARGS.
@@ -679,8 +689,8 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                  nnreddit-el-dir)))
              (python-shell-extra-pythonpaths (list nnreddit-py-dir))
              (process-environment (python-shell-calculate-process-environment))
-             (python-executable (if nnreddit-use-virtualenv
-                                    (format "%snnreddit/bin/python" venv-location)
+             (python-executable (if nnreddit-venv
+                                    (format "%s%s/bin/python" venv-location nnreddit-venv)
                                   (executable-find nnreddit-python-command)))
              (python-module (if (featurep 'test) "tests" "nnreddit"))
              (praw-command (list python-executable "-m" python-module)))
