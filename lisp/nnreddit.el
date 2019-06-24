@@ -1,6 +1,6 @@
 ;;; nnreddit.el --- Gnus backend for reddit  -*- lexical-binding: t; coding: utf-8 -*-
 
-;; Copyright (C) 2016-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2019 The Authors of nnreddit.el
 
 ;; Authors: Paul Issartel <paul.issartel@u-psud.fr>
 ;;          dickmao <github id: dickmao>
