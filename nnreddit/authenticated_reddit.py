@@ -202,6 +202,28 @@ class AuthenticatedReddit(Reddit):
             raise ValueError('Unexpected name {} with type {}'.format(name, type))
         parent.reply(body)
 
+    def edit(self, name, body):
+        (type, id) = name.split("_", 1)
+        editable = None
+        if type == self.config.kinds['submission']:
+            editable = self.submission(id)
+        elif type == self.config.kinds['comment']:
+            editable = self.comment(id)
+        else:
+            raise ValueError('Unexpected name {} with type {}'.format(name, type))
+        editable.edit(body)
+
+    def delete(self, name):
+        (type, id) = name.split("_", 1)
+        editable = None
+        if type == self.config.kinds['submission']:
+            editable = self.submission(id)
+        elif type == self.config.kinds['comment']:
+            editable = self.comment(id)
+        else:
+            raise ValueError('Unexpected name {} with type {}'.format(name, type))
+        editable.delete()
+
     def comments(self, display_name):
         if display_name not in self._stream_comm:
             self._stream_comm[display_name] = self.subreddit(display_name).\
