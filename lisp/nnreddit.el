@@ -69,7 +69,7 @@
                 '((string :tag "Other")))
   :group 'nnreddit)
 
-(defconst nnreddit-venv
+(defcustom nnreddit-venv
   (unless noninteractive
     (let* ((library-directory (file-name-directory (locate-library "nnreddit")))
            (defacto-version (file-name-nondirectory
@@ -91,7 +91,10 @@
   "Venv directory name in `venv-location'.
 
 To facilitate upgrades, the name gloms a de facto version (the directory
-name where this file resides) and the `nnreddit-python-command'.")
+name where this file resides) and the `nnreddit-python-command'."
+  :type '(choice (string :tag "Directory" (get (quote nnreddit-env) (quote standard-value)))
+                 (const :tag "Development" nil))
+  :group 'nnreddit)
 
 ;; keymaps made by `define-prefix-command' in `gnus-define-keys-1'
 (defvar nnreddit-article-mode-map)
@@ -582,12 +585,12 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
            "Content-Type: text/html; charset=utf-8" "\n"
            "Score: " score "\n"
            "\n")
-          (nnreddit-and-let* ((parent-name (plist-get header :parent_id)) ;; parent-id is full
-                         (parent-author (or (gnus-gethash-safe parent-name
-                                                               nnreddit-authors-hashtb)
-                                            "Someone"))
-                         (parent-body (nnreddit--get-body parent-name group server)))
-            (insert (nnreddit--citation-wrap parent-author parent-body)))
+          (nnreddit-and-let*
+           ((parent-name (plist-get header :parent_id)) ;; parent_id is full
+            (parent-author (or (gnus-gethash-safe parent-name nnreddit-authors-hashtb)
+                               "Someone"))
+            (parent-body (nnreddit--get-body parent-name group server)))
+           (insert (nnreddit--citation-wrap parent-author parent-body)))
           (insert (nnreddit--br-tagify body))
           (cons group article-number))))))
 
@@ -754,6 +757,13 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                                (- (min (length (buffer-string)) 50))))
                       (plist-get result :result)))))))
 
+(deffoo nnreddit-request-replace-article (_article _group _buffer)
+  t)
+
+(defsubst nnreddit--extract-name (from)
+  "String match on something looking like t1_es076hd in FROM."
+  (and (string-match "\\(t[0-9]+_[a-z0-9]+\\)" from) (match-string 1 from)))
+
 ;; C-c C-c from followup buffer
 ;; message-send-and-exit
 ;; message-send
@@ -767,6 +777,8 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
          (title (or (message-fetch-field "Subject") (error "No Subject field")))
          (link (message-fetch-field "Link"))
          (reply-p (not (null message-reply-headers)))
+         (edit-name (nnreddit--extract-name (message-fetch-field "Message-ID")))
+         (cancel-name (nnreddit--extract-name (message-fetch-field "Control")))
          (root-p (message-fetch-field "Reply-Root"))
          (article-number (cdr gnus-article-current))
          (group (if (numberp article-number)
@@ -780,7 +792,9 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
               (message-goto-body)
               (narrow-to-region (point) (point-max))
               (buffer-string)))))
-    (cond (reply-p (nnreddit-rpc-call server nil "reply"
+    (cond (cancel-name (nnreddit-rpc-call server nil "delete" cancel-name))
+          (edit-name (nnreddit-rpc-call server nil "edit" edit-name body))
+          (reply-p (nnreddit-rpc-call server nil "reply"
                                       (plist-get header :name)
                                       body (stringp root-p)))
           (link (let* ((parsed-url (url-generic-parse-url link))
@@ -812,6 +826,11 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   (when (nnreddit--gate)
     (nnreddit-article-mode)))
 
+(defun nnreddit-article-edit-mode-activate ()
+  "Convert html to text."
+  (when (nnreddit--gate)
+    (article-wash-html)))
+
 (defun nnreddit-summary-mode-activate ()
   "Shadow some bindings in `gnus-summary-mode-map' conditionally."
   (when (nnreddit--gate)
@@ -826,6 +845,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 (add-hook 'gnus-article-mode-hook 'nnreddit-article-mode-activate)
 (add-hook 'gnus-group-mode-hook 'nnreddit-group-mode-activate)
 (add-hook 'gnus-summary-mode-hook 'nnreddit-summary-mode-activate)
+(add-hook 'gnus-article-edit-mode-hook 'nnreddit-article-edit-mode-activate)
 
 ;; `gnus-newsgroup-p' requires valid method post-mail to return t
 (add-to-list 'gnus-valid-select-methods '("nnreddit" post-mail) t)
@@ -834,7 +854,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 ;; The interactive spec of gnus-summary-followup is putatively preserved.
 (add-function :around (symbol-function 'gnus-summary-followup)
    (lambda (f &rest args)
-     (cond ((eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
+     (cond ((nnreddit--gate)
             (or (nnreddit-and-let*
                     ((article-number (gnus-summary-article-number))
                      (header (nnreddit--get-header article-number))
@@ -869,7 +889,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 (add-function
  :around (symbol-function 'message-send-news)
  (lambda (f &rest args)
-   (cond ((eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
+   (cond ((nnreddit--gate)
           (let* ((dont-ask (lambda (prompt)
                              (when (cl-search "mpty article" prompt) t)))
                  (link-p (not (null (message-fetch-field "Link"))))
@@ -887,7 +907,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 (add-function
  :around (symbol-function 'gnus-summary-post-news)
  (lambda (f &rest args)
-   (cond ((eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
+   (cond ((nnreddit--gate)
           (let* ((nnreddit-post-type (read-char-choice "[l]ink / [t]ext: " '(?l ?t)))
                  (link-header (apply-partially #'message-add-header "Link: https://"))
                  (add-link-header (apply-partially #'add-hook
@@ -907,17 +927,39 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
          (t (apply f args)))))
 
 (add-function
+ :filter-args (symbol-function 'gnus-summary-edit-article)
+ (lambda (args)
+   (if (and (nnreddit--gate) (null (car args)))
+       (list 1)
+     args)))
+
+(add-function
  :filter-return (symbol-function 'message-make-fqdn)
  (lambda (val)
-   (if (and (eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
+   (if (and (nnreddit--gate)
             (cl-search "--so-tickle-me" val))
        "reddit.com" val)))
 
 (add-function
  :before-until (symbol-function 'message-make-from)
  (lambda (&rest _args)
-   (when (eq (car (gnus-find-method-for-group gnus-newsgroup-name)) 'nnreddit)
+   (when (nnreddit--gate)
      (concat (nnreddit-rpc-call nil nil "user_attr" "name") "@reddit.com"))))
+
+(add-function
+ :around (symbol-function 'message-is-yours-p)
+ (lambda (f &rest args)
+   (let ((concat-func (lambda (f &rest args)
+                       (let ((fetched (apply f args)))
+                         (if (string= (car args) "from")
+                             (concat fetched "@reddit.com")
+                           fetched)))))
+     (when (nnreddit--gate)
+       (add-function :around
+                     (symbol-function 'message-fetch-field)
+                     concat-func))
+     (prog1 (apply f args)
+       (remove-function (symbol-function 'message-fetch-field) concat-func)))))
 
 ;; disallow caching as the article numbering is wont to change
 ;; after PRAW restarts!
