@@ -757,12 +757,9 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                                (- (min (length (buffer-string)) 50))))
                       (plist-get result :result)))))))
 
-(deffoo nnreddit-request-replace-article (_article _group _buffer)
-  t)
-
 (defsubst nnreddit--extract-name (from)
   "String match on something looking like t1_es076hd in FROM."
-  (and (string-match "\\(t[0-9]+_[a-z0-9]+\\)" from) (match-string 1 from)))
+  (and (stringp from) (string-match "\\(t[0-9]+_[a-z0-9]+\\)" from) (match-string 1 from)))
 
 ;; C-c C-c from followup buffer
 ;; message-send-and-exit
@@ -777,7 +774,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
          (title (or (message-fetch-field "Subject") (error "No Subject field")))
          (link (message-fetch-field "Link"))
          (reply-p (not (null message-reply-headers)))
-         (edit-name (nnreddit--extract-name (message-fetch-field "Message-ID")))
+         (edit-name (nnreddit--extract-name (message-fetch-field "Supersedes")))
          (cancel-name (nnreddit--extract-name (message-fetch-field "Control")))
          (root-p (message-fetch-field "Reply-Root"))
          (article-number (cdr gnus-article-current))
@@ -826,11 +823,6 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   (when (nnreddit--gate)
     (nnreddit-article-mode)))
 
-(defun nnreddit-article-edit-mode-activate ()
-  "Convert html to text."
-  (when (nnreddit--gate)
-    (article-wash-html)))
-
 (defun nnreddit-summary-mode-activate ()
   "Shadow some bindings in `gnus-summary-mode-map' conditionally."
   (when (nnreddit--gate)
@@ -845,46 +837,86 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 (add-hook 'gnus-article-mode-hook 'nnreddit-article-mode-activate)
 (add-hook 'gnus-group-mode-hook 'nnreddit-group-mode-activate)
 (add-hook 'gnus-summary-mode-hook 'nnreddit-summary-mode-activate)
-(add-hook 'gnus-article-edit-mode-hook 'nnreddit-article-edit-mode-activate)
 
 ;; `gnus-newsgroup-p' requires valid method post-mail to return t
 (add-to-list 'gnus-valid-select-methods '("nnreddit" post-mail) t)
 
 ;; Add prompting for replying to thread root to gnus-summary-followup.
 ;; The interactive spec of gnus-summary-followup is putatively preserved.
-(add-function :around (symbol-function 'gnus-summary-followup)
-   (lambda (f &rest args)
-     (cond ((nnreddit--gate)
-            (or (nnreddit-and-let*
-                    ((article-number (gnus-summary-article-number))
-                     (header (nnreddit--get-header article-number))
-                     (root-name (car (nnreddit-refs-for (plist-get header :name))))
-                     (rootless (or (not (stringp root-name))
-                                   (not (string-prefix-p "t3_" root-name))
-                                   (not (nnreddit-find-header
-                                         (gnus-group-real-name gnus-newsgroup-name)
-                                         (nnreddit-hack-name-to-id root-name)))))
-                     (reply-root (read-char-choice
-                                  "Reply loose thread [m]essage or [r]oot: " '(?m ?r)))
-                     ((eq reply-root ?r)))
-                  (let* ((link-header (apply-partially #'message-add-header
-                                                       "Reply-Root: yes"))
-                         (add-link-header (apply-partially #'add-hook
-                                                           'message-header-setup-hook
-                                                           link-header))
-                         (remove-link-header (apply-partially #'remove-hook
-                                                              'message-header-setup-hook
-                                                              link-header)))
-                    (funcall add-link-header)
-                    (condition-case err
-                        (progn
-                          (apply f args)
-                          (funcall remove-link-header))
-                      (error (funcall remove-link-header)
-                             (error (error-message-string err)))))
-                  t)
-                (apply f args)))
-           (t (apply f args)))))
+(let* ((prompt-loose
+        (lambda (f &rest args)
+          (cond ((nnreddit--gate)
+                 (or (nnreddit-and-let*
+                      ((article-number (gnus-summary-article-number))
+                       (header (nnreddit--get-header article-number))
+                       (root-name (car (nnreddit-refs-for (plist-get header :name))))
+                       (rootless (or (not (stringp root-name))
+                                     (not (string-prefix-p "t3_" root-name))
+                                     (not (nnreddit-find-header
+                                           (gnus-group-real-name gnus-newsgroup-name)
+                                           (nnreddit-hack-name-to-id root-name)))))
+                       (reply-root (read-char-choice
+                                    "Reply loose thread [m]essage or [r]oot: " '(?m ?r)))
+                       ((eq reply-root ?r)))
+                      (let* ((link-header (apply-partially #'message-add-header
+                                                           "Reply-Root: yes"))
+                             (add-link-header (apply-partially #'add-hook
+                                                               'message-header-setup-hook
+                                                               link-header))
+                             (remove-link-header (apply-partially #'remove-hook
+                                                                  'message-header-setup-hook
+                                                                  link-header)))
+                        (funcall add-link-header)
+                        (condition-case err
+                            (progn
+                              (apply f args)
+                              (funcall remove-link-header))
+                          (error (funcall remove-link-header)
+                                 (error (error-message-string err)))))
+                      t)
+                     (apply f args)))
+                (t (apply f args)))))
+       (advise-gnus-summary-followup
+        (lambda ()
+          (add-function :around (symbol-function 'gnus-summary-followup) prompt-loose)))
+       (suspend-prompt-loose
+        (lambda (f &rest args)
+          (cond ((nnreddit--gate)
+                 (remove-function (symbol-function 'gnus-summary-followup) prompt-loose)
+                 (condition-case err
+                     (prog1 (apply f args)
+                       (funcall advise-gnus-summary-followup))
+                   (error (funcall advise-gnus-summary-followup)
+                          (error (error-message-string err)))))
+                (t (apply f args)))))
+       (advise-gnus-summary-cancel-article
+        (lambda ()
+          (add-function :around (symbol-function 'gnus-summary-cancel-article)
+                        suspend-prompt-loose))))
+  (funcall advise-gnus-summary-cancel-article)
+  (funcall advise-gnus-summary-followup))
+
+(add-function
+ :around (symbol-function 'message-supersede)
+ (lambda (f &rest args)
+   (cond ((nnreddit--gate)
+          (add-function :override
+                        (symbol-function 'mml-insert-mml-markup)
+                        'ignore)
+          (condition-case err
+              (prog1 (apply f args)
+                (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)
+                (save-excursion
+                  (save-restriction
+                    (message-replace-header "From" (message-make-from))
+                    (message-goto-body)
+                    (narrow-to-region (point) (point-max))
+                    (goto-char (point-max))
+                    (mm-inline-text-html nil)
+                    (delete-region (point-min) (point)))))
+            (error (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)
+                   (error (error-message-string err)))))
+         (t (apply f args)))))
 
 (add-function
  :around (symbol-function 'message-send-news)
@@ -927,13 +959,6 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
          (t (apply f args)))))
 
 (add-function
- :filter-args (symbol-function 'gnus-summary-edit-article)
- (lambda (args)
-   (if (and (nnreddit--gate) (null (car args)))
-       (list 1)
-     args)))
-
-(add-function
  :filter-return (symbol-function 'message-make-fqdn)
  (lambda (val)
    (if (and (nnreddit--gate)
@@ -958,8 +983,11 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
        (add-function :around
                      (symbol-function 'message-fetch-field)
                      concat-func))
-     (prog1 (apply f args)
-       (remove-function (symbol-function 'message-fetch-field) concat-func)))))
+     (condition-case err
+         (prog1 (apply f args)
+           (remove-function (symbol-function 'message-fetch-field) concat-func))
+       (error (remove-function (symbol-function 'message-fetch-field) concat-func)
+              (error (error-message-string err)))))))
 
 ;; disallow caching as the article numbering is wont to change
 ;; after PRAW restarts!
