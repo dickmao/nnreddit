@@ -62,22 +62,15 @@
         (let* ((prefix (concat (file-name-as-directory gnus-home-directory)
                                relative-prefix))
                (dir (file-name-directory prefix))
-               (base (file-name-base prefix)))
-          (nnreddit-aif (seq-some (lambda (b)
-                               (when (cl-search base (buffer-name b)) b))
-                             (buffer-list))
-              (progn
-                (switch-to-buffer it)
-                (revert-buffer :ignore-auto :noconfirm))
-            (let* ((alist
-                    (directory-files-and-attributes dir t (regexp-quote base) t))
-                   (sofar (cl-first alist))
-                   (most-recent (dolist (cand alist (car sofar))
-                                  (if (> (float-time (nth 5 (cdr cand)))
-                                         (float-time (nth 5 (cdr sofar))))
-                                      (setq sofar cand)))))
-              (find-file most-recent)
-              )))))
+               (base (file-name-base prefix))
+               (alist
+                (directory-files-and-attributes dir t (regexp-quote base) t))
+               (sofar (cl-first alist))
+               (most-recent (dolist (cand alist (car sofar))
+                              (if (> (float-time (nth 5 (cdr cand)))
+                                     (float-time (nth 5 (cdr sofar))))
+                                  (setq sofar cand)))))
+          (find-file most-recent))))
 
 (When "^I wait \\([.0-9]+\\) seconds?$"
       (lambda (seconds)

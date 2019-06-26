@@ -88,3 +88,17 @@ Scenario: Reply to a loose thread
   And I press "C-c C-c"
   And I should be in buffer "*Summary nnreddit:PostPreview*"
   Then end recording "loose"
+
+@cancel
+Scenario: cancel post
+  When begin recording "cancel"
+  Given gnus start
+  And I go to word "PostPreview"
+  And I press "RET"
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
+  And I go to word "nnreddit-user"
+  And emacs26 cannot do action chain "S C y e s"
+  And I open latest "log/test_py"
+  And I wait for buffer to say "('id', 't1_eqwoano')"
+  And I wait for buffer to say "/api/del/"
+  Then end recording "cancel"

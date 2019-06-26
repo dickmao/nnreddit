@@ -699,8 +699,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
              (praw-command (list python-executable "-m" python-module)))
         (when nnreddit-log-rpc
           (setq nnreddit-rpc-log-filename
-                (concat (file-name-as-directory temporary-file-directory)
-                        "nnreddit-rpc-log."))
+                (concat (file-name-as-directory temporary-file-directory) "nnreddit-rpc-log."))
           (setq praw-command (append praw-command (list "--log" nnreddit-rpc-log-filename))))
         (setq proc (make-process :name server
                                  :buffer (get-buffer-create (format " *%s*" server))
