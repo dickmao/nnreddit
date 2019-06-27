@@ -62,22 +62,15 @@
         (let* ((prefix (concat (file-name-as-directory gnus-home-directory)
                                relative-prefix))
                (dir (file-name-directory prefix))
-               (base (file-name-base prefix)))
-          (nnreddit-aif (seq-some (lambda (b)
-                               (when (cl-search base (buffer-name b)) b))
-                             (buffer-list))
-              (progn
-                (switch-to-buffer it)
-                (revert-buffer :ignore-auto :noconfirm))
-            (let* ((alist
-                    (directory-files-and-attributes dir t (regexp-quote base) t))
-                   (sofar (cl-first alist))
-                   (most-recent (dolist (cand alist (car sofar))
-                                  (if (> (float-time (nth 5 (cdr cand)))
-                                         (float-time (nth 5 (cdr sofar))))
-                                      (setq sofar cand)))))
-              (find-file most-recent)
-              )))))
+               (base (file-name-base prefix))
+               (alist
+                (directory-files-and-attributes dir t (regexp-quote base) t))
+               (sofar (cl-first alist))
+               (most-recent (dolist (cand alist (car sofar))
+                              (if (> (float-time (nth 5 (cdr cand)))
+                                     (float-time (nth 5 (cdr sofar))))
+                                  (setq sofar cand)))))
+          (find-file most-recent))))
 
 (When "^I wait \\([.0-9]+\\) seconds?$"
       (lambda (seconds)
@@ -92,10 +85,17 @@
              (if negate (not says) says)))
          nil 40000 2000)))
 
+
+;; (When "^I scuzz \"\\(.+\\)\"$"
+;;       (lambda (buffer)
+;;         (let ((v (vconcat [?\C-x ?b] (string-to-vector buffer))))
+;;           (princ (format "holla %s %s %s" (string-to-vector buffer) v (key-binding buffer)))
+;;           (execute-kbd-macro (string-to-vector buffer))
+;;           (execute-kbd-macro v))))
+
 (When "^emacs26 cannot do action chain \"\\(.+\\)\"$"
       (lambda (keys)
-        (let ((vkeys (seq-concatenate 'vector
-                                      (mapcar #'string-to-char (split-string keys)))))
+        (let ((vkeys (seq-concatenate 'vector (mapcar #'string-to-char (split-string keys "[ ]")))))
           (condition-case err
               (execute-kbd-macro vkeys)
             (error (message "emacs26 cannot do action chain: %s"
