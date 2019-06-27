@@ -102,3 +102,18 @@ Scenario: cancel post
   And I wait for buffer to say "('id', 't1_eqwoano')"
   And I wait for buffer to say "/api/del/"
   Then end recording "cancel"
+
+@supersede
+Scenario: supersede post
+  When begin recording "supersede"
+  Given gnus start
+  And I go to word "PostPreview"
+  And I press "RET"
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
+  And I go to word "nnreddit-user"
+  And I press "S s"
+  Then I should be in buffer "*"
+  And I open latest "log/test_py"
+  And I wait for buffer to say "('id', 't1_eqwoano')"
+  And I wait for buffer to say "/api/del/"
+  Then end recording "supersede"
