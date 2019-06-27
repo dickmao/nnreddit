@@ -19,7 +19,18 @@ A Gnus backend for Reddit.
 
 Install
 =======
-``make install`` from github source.
+As described in `Getting started`_, ensure melpa's whereabouts in ``init.el`` or ``.emacs``::
+
+   (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
+
+Then
+
+::
+
+   M-x package-refresh-contents RET
+   M-x package-install RET nnreddit RET
+
+Alternatively, directly clone this repo and ``make install``.
 
 Usage
 =====
@@ -39,7 +50,7 @@ A typical session might look like::
 
 Keybinding ``u`` (gnus-group-unsubscribe-current-group) actually *toggles* subscription to ``r/emacsy``.  I don't make the rules.
 
-Reenter the ``emacsy`` newsgroup with ``RET``.  Rapidly catch yourself up via ``N`` and ``P``.  Instantly catch-up with ``c``, and worry not.  If a thread was important, it will show up again.
+Reenter the ``emacsy`` newsgroup with ``RET``.  Rapidly catch yourself up via ``N`` and ``P``.  Instantly catch-up with ``c``.
 
 Create a post via ``a``.
 
@@ -49,7 +60,13 @@ Vote articles by first entering the Article buffer, then ``R -`` (down), ``R =``
 
 From the ``*Group*`` buffer, press ``g`` to refresh all subreddits.  ``M-g`` on a particular subreddit to refresh individually.
 
+From the summary buffer, ``/o`` redisplays articles already read.  ``x`` undisplays them.
+
+``S s`` edits articles.
+
+``S c`` cancels articles.
+
 Gnus beginners may find the interface bewildering.  In particular, subreddits with no unread articles do not display.  Use ``L`` to bring them out of hiding.
 
 .. _Cask: https://cask.readthedocs.io/en/latest/guide/installation.html
-.. _MELPA: http://melpa.org/#/
+.. _Getting started: http://melpa.org/#/getting-started

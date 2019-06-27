@@ -105,6 +105,7 @@ Scenario: cancel post
 
 @supersede
 Scenario: supersede post
+  Given gnus stop
   When begin recording "supersede"
   Given gnus start
   And I go to word "PostPreview"
@@ -112,8 +113,10 @@ Scenario: supersede post
   And I should be in buffer "*Summary nnreddit:PostPreview*"
   And I go to word "nnreddit-user"
   And I press "S s"
-  Then I should be in buffer "*"
+  Then I should be in buffer "*unsent supersede*"
+  And I type "edit: "
+  And I press "C-c C-c"
   And I open latest "log/test_py"
-  And I wait for buffer to say "('id', 't1_eqwoano')"
-  And I wait for buffer to say "/api/del/"
+  And I wait for buffer to say "api/editusertext"
+  And I wait for buffer to say "('thing_id', 't1_eqwe7dx')"
   Then end recording "supersede"
