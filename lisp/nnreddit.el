@@ -381,8 +381,7 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 (defsubst nnreddit--citation-wrap (author body)
   "Cite AUTHOR using `gnus-message-cite-prefix-regexp' before displaying BODY.
 
-Originally written by Paul Issartel.
-"
+Originally written by Paul Issartel."
   (with-temp-buffer
     (insert body)
     (mm-url-remove-markup)
