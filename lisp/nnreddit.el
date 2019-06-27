@@ -2,8 +2,7 @@
 
 ;; Copyright (C) 2019 The Authors of nnreddit.el
 
-;; Authors: Paul Issartel <paul.issartel@u-psud.fr>
-;;          dickmao <github id: dickmao>
+;; Authors: dickmao <github id: dickmao>
 ;; Version: 0
 ;; Keywords: news
 ;; URL: https://github.com/dickmao/nnreddit
@@ -380,7 +379,10 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
   (replace-regexp-in-string "\n" "<br>" body))
 
 (defsubst nnreddit--citation-wrap (author body)
-  "Cite AUTHOR using `gnus-message-cite-prefix-regexp' before displaying BODY."
+  "Cite AUTHOR using `gnus-message-cite-prefix-regexp' before displaying BODY.
+
+Originally written by Paul Issartel.
+"
   (with-temp-buffer
     (insert body)
     (mm-url-remove-markup)
