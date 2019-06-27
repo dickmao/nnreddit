@@ -85,10 +85,17 @@
              (if negate (not says) says)))
          nil 40000 2000)))
 
+
+;; (When "^I scuzz \"\\(.+\\)\"$"
+;;       (lambda (buffer)
+;;         (let ((v (vconcat [?\C-x ?b] (string-to-vector buffer))))
+;;           (princ (format "holla %s %s %s" (string-to-vector buffer) v (key-binding buffer)))
+;;           (execute-kbd-macro (string-to-vector buffer))
+;;           (execute-kbd-macro v))))
+
 (When "^emacs26 cannot do action chain \"\\(.+\\)\"$"
       (lambda (keys)
-        (let ((vkeys (seq-concatenate 'vector
-                                      (mapcar #'string-to-char (split-string keys)))))
+        (let ((vkeys (seq-concatenate 'vector (mapcar #'string-to-char (split-string keys "[ ]")))))
           (condition-case err
               (execute-kbd-macro vkeys)
             (error (message "emacs26 cannot do action chain: %s"

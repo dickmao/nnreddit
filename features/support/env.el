@@ -3,6 +3,11 @@
 (require 'espuds)
 (require 'f)
 
+;; M-x gnus-summary-cancel-article yields "variable binding depth exceeds max-specpdl-size"
+;; under emacs26.  It's not execute-kbd-macro that's causing the trouble.
+(when (>= emacs-major-version 26)
+  (!cons "cancel" ecukes-exclude-tags))
+
 (with-eval-after-load "python"
   (setq python-indent-guess-indent-offset-verbose nil))
 

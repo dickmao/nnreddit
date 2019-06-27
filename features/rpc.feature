@@ -84,7 +84,6 @@ Scenario: Reply to a loose thread
   And I should see "Reply-Root: yes"
   And I press "M->"
   And I type "this is a test"
-  And I dump buffer
   And I press "C-c C-c"
   And I should be in buffer "*Summary nnreddit:PostPreview*"
   Then end recording "loose"
@@ -97,10 +96,10 @@ Scenario: cancel post
   And I press "RET"
   And I should be in buffer "*Summary nnreddit:PostPreview*"
   And I go to word "nnreddit-user"
-  And emacs26 cannot do action chain "S C y e s"
+  And I call "gnus-summary-cancel-article"
   And I open latest "log/test_py"
+  And I wait for buffer to say "api/del"
   And I wait for buffer to say "('id', 't1_eqwoano')"
-  And I wait for buffer to say "/api/del/"
   Then end recording "cancel"
 
 @supersede
@@ -112,7 +111,7 @@ Scenario: supersede post
   And I press "RET"
   And I should be in buffer "*Summary nnreddit:PostPreview*"
   And I go to word "nnreddit-user"
-  And I press "S s"
+  And emacs26 cannot do action chain "S s"
   Then I should be in buffer "*unsent supersede*"
   And I type "edit: "
   And I press "C-c C-c"
