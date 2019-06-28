@@ -83,7 +83,7 @@
            (let* ((says (s-contains? (s-replace "\\n" "\n" bogey) (buffer-string))))
              (revert-buffer :ignore-auto :noconfirm)
              (if negate (not says) says)))
-         nil 40000 2000)))
+         nil 5000 1000)))
 
 
 ;; (When "^I scuzz \"\\(.+\\)\"$"
