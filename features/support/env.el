@@ -27,7 +27,7 @@
    '(gnus-verbose 8)
    '(gnus-interactive-exit (quote quiet))))
 
-(require 'test)
+(require 'nnreddit-test)
 
 (defun cleanup ()
   (let* ((newsrc-file gnus-current-startup-file)
