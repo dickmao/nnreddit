@@ -1,4 +1,4 @@
-;;; test.el --- Test nnreddit  -*- lexical-binding: t; coding: utf-8 -*-
+;;; utils-test.el --- Test utilities for nnreddit  -*- lexical-binding: t; coding: utf-8 -*-
 
 ;; The following is a derivative work of
 ;; https://github.com/millejoh/emacs-ipython-notebook
@@ -30,5 +30,3 @@
                       (apply f args)
                     (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest args) t)))
                       (apply f args))))))
-
-(provide 'test)
