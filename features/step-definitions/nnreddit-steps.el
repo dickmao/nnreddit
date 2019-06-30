@@ -78,7 +78,7 @@
 
 (When "^I wait for buffer to\\( not\\)? say \"\\(.+\\)\"$"
       (lambda (negate bogey)
-        (test-wait-for
+        (nnreddit-test-wait-for
          (lambda ()
            (let* ((says (s-contains? (s-replace "\\n" "\n" bogey) (buffer-string))))
              (revert-buffer :ignore-auto :noconfirm)
