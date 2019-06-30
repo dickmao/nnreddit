@@ -1,4 +1,4 @@
-;;; utils-test.el --- Test utilities for nnreddit  -*- lexical-binding: t; coding: utf-8 -*-
+;;; nnreddit-test.el --- Test utilities for nnreddit  -*- lexical-binding: t; coding: utf-8 -*-
 
 ;; The following is a derivative work of
 ;; https://github.com/millejoh/emacs-ipython-notebook
@@ -9,7 +9,7 @@
 (require 'ert)
 (require 'message)
 
-(defun test-wait-for (predicate &optional predargs ms interval continue)
+(defun nnreddit-test-wait-for (predicate &optional predargs ms interval continue)
   "Wait until PREDICATE function returns non-`nil'.
   PREDARGS is argument list for the PREDICATE function.
   MS is milliseconds to wait.  INTERVAL is polling interval in milliseconds."
@@ -30,3 +30,5 @@
                       (apply f args)
                     (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest args) t)))
                       (apply f args))))))
+
+(provide 'nnreddit-test)

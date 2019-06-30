@@ -10,7 +10,6 @@
        (root-path (f-parent (f-parent support-path))))
   (add-to-list 'load-path (concat root-path "/lisp"))
   (add-to-list 'load-path (concat root-path "/tests"))
-  (load "utils-test" nil nil nil t)
   (custom-set-variables
    '(gnus-before-startup-hook (quote (toggle-debug-on-error)))
    '(nnreddit-use-virtualenv nil)
@@ -27,6 +26,8 @@
    '(gnus-message-highlight-citation nil)
    '(gnus-verbose 8)
    '(gnus-interactive-exit (quote quiet))))
+
+(require 'nnreddit-test)
 
 (defun cleanup ()
   (let* ((newsrc-file gnus-current-startup-file)

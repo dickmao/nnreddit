@@ -695,7 +695,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
              (python-executable (if nnreddit-venv
                                     (format "%s%s/bin/python" venv-location nnreddit-venv)
                                   (executable-find nnreddit-python-command)))
-             (python-module (if (featurep 'test) "tests" "nnreddit"))
+             (python-module (if (featurep 'nnreddit-test) "tests" "nnreddit"))
              (praw-command (list python-executable "-m" python-module)))
         (when nnreddit-log-rpc
           (setq nnreddit-rpc-log-filename
