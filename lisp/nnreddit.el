@@ -523,10 +523,11 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
     (nnreddit--with-group group
       (let* ((comments (nnreddit-rpc-call server nil "comments" group))
              (raw-submissions (nnreddit-rpc-call server nil "submissions" group))
-             (submissions (and (> (length raw-submissions) 0)
-                               (nnreddit--filter-after
-                                (- (plist-get (aref raw-submissions 0) :created_utc) 7200)
-                                raw-submissions))))
+             (submissions (if (zerop (length comments))
+                              raw-submissions
+                            (nnreddit--filter-after
+                             (- (plist-get (aref comments 0) :created_utc) 7200)
+                             raw-submissions))))
         (seq-doseq (e comments)
           (nnreddit-add-entry nnreddit-refs-hashtb e :parent_id)) ;; :parent_id is fullname
         (seq-doseq (e (vconcat submissions comments))
