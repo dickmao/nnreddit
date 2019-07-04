@@ -128,9 +128,7 @@ name where this file resides) and the `nnreddit-python-command'."
       "0" nnreddit-novote
       "-" nnreddit-downvote
       "=" nnreddit-upvote
-      "+" nnreddit-upvote)
-    ;; WHY????
-    (define-key gnus-article-mode-map "F" 'gnus-summary-followup-with-original)))
+      "+" nnreddit-upvote)))
 
 (define-minor-mode nnreddit-summary-mode
   "Disallow \"reply\" commands in `gnus-summary-mode-map'.
