@@ -70,24 +70,49 @@
   :group 'nnreddit)
 
 (defcustom nnreddit-venv
-  (unless noninteractive
-    (let* ((library-directory (file-name-directory (locate-library "nnreddit")))
-           (defacto-version (file-name-nondirectory
-                             (directory-file-name library-directory)))
-           (result (concat defacto-version "-" nnreddit-python-command)))
-      (prog1 result
-        (gnus-message 7 "nnreddit-venv: %s%s" venv-location result)
-        (unless (member result (split-string (venv-list-virtualenvs)))
-          (gnus-message 5 "nnreddit-venv: installing venv to %s..." result)
-          (condition-case err
-              (progn
-                (venv-mkvirtualenv-using nnreddit-python-command result)
-                (venv-with-virtualenv-shell-command
-                 result
-                 (format "cd %s && python setup.py install" library-directory)))
-            (error (venv-rmvirtualenv result)
-                   (error (error-message-string err))))
-          (gnus-message 5 "nnreddit-venv: installing venv to %s...done" result)))))
+  (let* ((library-directory (file-name-directory (locate-library "nnreddit")))
+         (defacto-version (file-name-nondirectory
+                           (directory-file-name library-directory)))
+         (result (concat defacto-version "-" nnreddit-python-command))
+         (requirements (concat library-directory "requirements.txt"))
+         (install-args (if (file-exists-p requirements)
+                           (list "-r" requirements)
+                         (list "virtualenv")))
+         (already-in-venv
+          (not (zerop (apply #'call-process nnreddit-python-command
+                             nil nil nil
+                             (list
+                              "-c"
+                              "import sys; sys.exit(hasattr(sys, 'real_prefix'))")))))
+         (pip-args (append (list "-m" "pip" "install")
+                           (unless already-in-venv (list "--user"))
+                           install-args))
+         (pip-status
+          (apply #'call-process nnreddit-python-command nil nil nil
+                 pip-args)))
+    (gnus-message 7 "nnreddit-venv: %s %s" nnreddit-python-command
+                  (mapconcat 'identity pip-args " "))
+    (cond ((numberp pip-status)
+           (unless (zerop pip-status)
+             (gnus-message 3 "nnreddit-venv: pip install exit %s" pip-status)))
+          (t (gnus-message 3 "nnreddit-venv: pip install signal %s" pip-status)))
+    (prog1 result
+      (gnus-message 7 "nnreddit-venv: %s%s" venv-location result)
+      (unless (file-exists-p venv-location)
+        (make-directory venv-location))
+      (unless (member result (split-string (venv-list-virtualenvs)))
+        (gnus-message 5 "nnreddit-venv: installing venv to %s..." result)
+        (condition-case err
+            (progn
+              (venv-mkvirtualenv-using nnreddit-python-command result)
+              (venv-with-virtualenv-shell-command
+               result
+               ;; `python` and not `nnreddit-python-command` because
+               ;; venv normalizes the executable to `python`.
+               (format "cd %s && python setup.py install" library-directory)))
+          (error (venv-rmvirtualenv result)
+                 (error (error-message-string err))))
+        (gnus-message 5 "nnreddit-venv: installing venv to %s...done" result))))
   "Venv directory name in `venv-location'.
 
 To facilitate upgrades, the name gloms a de facto version (the directory
@@ -113,7 +138,21 @@ name where this file resides) and the `nnreddit-python-command'."
   :type 'boolean
   :group 'nnreddit)
 
+(defcustom nnreddit-rpc-request-timeout 60
+  "Turn on PRAW logging."
+  :type 'integer
+  :group 'nnreddit)
+
+(defcustom nnreddit-localhost "127.0.0.1"
+  "Some users keep their browser in a separate domain.
+
+Do not set this to \"localhost\" as a numeric IP is required for the oauth handshake."
+  :type 'string
+  :group 'nnreddit)
+
 (defvar nnreddit-rpc-log-filename nil)
+
+(defvar nnreddit--python-module-extra-args nil "Primarily for testing.")
 
 (define-minor-mode nnreddit-article-mode
   "Minor mode for nnreddit articles.  Disallow `gnus-article-reply-with-original'.
@@ -128,9 +167,7 @@ name where this file resides) and the `nnreddit-python-command'."
       "0" nnreddit-novote
       "-" nnreddit-downvote
       "=" nnreddit-upvote
-      "+" nnreddit-upvote)
-    ;; WHY????
-    (define-key gnus-article-mode-map "F" 'gnus-summary-followup-with-original)))
+      "+" nnreddit-upvote)))
 
 (define-minor-mode nnreddit-summary-mode
   "Disallow \"reply\" commands in `gnus-summary-mode-map'.
@@ -277,7 +314,7 @@ Normalize it to \"nnreddit-default\"."
 Process stays the same, but the jsonrpc connection (a cheap struct) gets reinstantiated with every call."
   (nnreddit--normalize-server)
   (let* ((connection (json-rpc--create :process (nnreddit-rpc-get server)
-                                       :host "localhost"
+                                       :host nnreddit-localhost
                                        :id-counter 0))
          (result (apply #'nnreddit-rpc-request connection generator_kwargs method args)))
     result))
@@ -681,6 +718,13 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
     (setq nnreddit-headers-hashtb (gnus-make-hashtable))
     (gnus-backlog-shutdown)))
 
+(defun nnreddit--message-user (server beg end _prev-len)
+  "Message SERVER related alert with `buffer-substring' from BEG to END."
+  (let ((string (buffer-substring beg end))
+        (magic "::user::"))
+    (when (string-prefix-p magic string)
+      (message "%s: %s" server (substring string (length magic))))))
+
 (defun nnreddit-rpc-get (&optional server)
   "Retrieve the PRAW process for SERVER."
   (nnreddit--normalize-server)
@@ -697,18 +741,27 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                     (format "%s%s/bin/python" venv-location nnreddit-venv)
                                   (executable-find nnreddit-python-command)))
              (python-module (if (featurep 'nnreddit-test) "tests" "nnreddit"))
-             (praw-command (list python-executable "-m" python-module)))
-        (when nnreddit-log-rpc
-          (setq nnreddit-rpc-log-filename
-                (concat (file-name-as-directory temporary-file-directory) "nnreddit-rpc-log."))
-          (setq praw-command (append praw-command (list "--log" nnreddit-rpc-log-filename))))
+             (praw-command (append (list python-executable "-m" python-module)
+                                   nnreddit--python-module-extra-args)))
+        (unless (featurep 'nnreddit-test)
+          (setq praw-command (append praw-command (list "--localhost" nnreddit-localhost)))
+          (when nnreddit-log-rpc
+            (setq nnreddit-rpc-log-filename
+                  (concat (file-name-as-directory temporary-file-directory)
+                          "nnreddit-rpc-log."))
+            (setq praw-command (append praw-command
+                                       (list "--log" nnreddit-rpc-log-filename)))))
         (setq proc (make-process :name server
                                  :buffer (get-buffer-create (format " *%s*" server))
                                  :command praw-command
                                  :connection-type 'pipe
                                  :noquery t
                                  :sentinel #'nnreddit-sentinel
-                                 :stderr (get-buffer-create (format " *%s-stderr*" server)))))
+                                 :stderr (get-buffer-create (format " *%s-stderr*" server))))
+        (with-current-buffer (get-buffer-create (format " *%s-stderr*" server))
+          (add-hook 'after-change-functions
+                    (apply-partially 'nnreddit--message-user server)
+                    nil t)))
       (push proc nnreddit-processes))
     proc))
 
@@ -723,12 +776,13 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
          (proc (json-rpc-process (json-rpc-ensure connection)))
          (encoded (json-encode (append '(:jsonrpc "2.0") request)))
          (json-object-type 'plist)
-         (json-key-type 'keyword))
+         (json-key-type 'keyword)
+         (iteration-seconds 6))
     (with-current-buffer (process-buffer proc)
       (erase-buffer)
       (gnus-message 7 "nnreddit-rpc-request: send %s" encoded)
       (process-send-string proc (concat encoded "\n"))
-      (cl-loop repeat 10
+      (cl-loop repeat (/ nnreddit-rpc-request-timeout iteration-seconds)
                with result
                until (or (not (json-rpc-live-p connection))
                          (and (not (zerop (length (buffer-string))))
@@ -745,7 +799,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                                            (error-message-string err)
                                                            resp))))
                                  nil))))
-               do (accept-process-output proc 6 0)
+               do (accept-process-output proc iteration-seconds 0)
                finally return
                (cond ((null result)
                       (error "nnreddit-rpc-request: response timed out"))

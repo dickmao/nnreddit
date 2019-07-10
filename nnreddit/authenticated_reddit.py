@@ -79,10 +79,11 @@ class AuthenticatedReddit(Reddit):
             ts = datetime.datetime.fromtimestamp(time()).strftime('%Y%m%d.%H%M%S')
             logging.getLogger().addHandler(logging.FileHandler(log_prefix + ts))
 
+        localhost = kwargs.pop('localhost', '127.0.0.1')
         default_kwargs = {
             'history_file': rtv.config.HISTORY,
             'token_file': rtv.config.TOKEN,
-            'redirect_uri': 'http://127.0.0.1:17973',
+            'redirect_uri': 'http://' + localhost + ':17973',
             'client_id': 'KBV2seGZgHOa9g',
             'client_secret': 'cannot-be-empty',
             'redirect_port': 17973,
@@ -120,23 +121,27 @@ class AuthenticatedReddit(Reddit):
             docs_sub = re.compile(r'reddit terminal viewer', re.IGNORECASE)
             docs.OAUTH_SUCCESS = docs_sub.sub('nnreddit', docs.OAUTH_SUCCESS)
             docs.OAUTH_ACCESS_DENIED = docs_sub.sub('nnreddit', docs.OAUTH_ACCESS_DENIED)
-            server = OAuthHTTPServer(('', cfg.config['redirect_port']), OAuthHandler)
-            p = Process(target=self.open_url_silent, args=(url,))
-            p.start()
-            try:
-                p.join(7)
-                if p.is_alive():
-                    raise BrowserError(
-                        'Timeout waiting for browser to open')
-            finally:
+            print("::user::Please check your browser.", file=sys.stderr)
+            if cfg.token_file == "/dev/null":
+                cfg.refresh_token = None
+            else:
+                p = Process(target=self.open_url_silent, args=(url,))
+                p.start()
                 try:
-                    p.terminate()
-                except OSError:
-                    pass
-            server.serve_forever()
-            self._authorized_core._authorizer.authorize(OAuthHandler.params['code'])
-            cfg.refresh_token = self._authorized_core._authorizer.refresh_token
-            cfg.save_refresh_token()
+                    p.join(7)
+                    if p.is_alive():
+                        raise BrowserError(
+                            'Timeout waiting for browser to open')
+                finally:
+                    try:
+                        p.terminate()
+                    except OSError:
+                        pass
+                server = OAuthHTTPServer(('', cfg.config['redirect_port']), OAuthHandler)
+                server.serve_forever()
+                self._authorized_core._authorizer.authorize(OAuthHandler.params['code'])
+                cfg.refresh_token = self._authorized_core._authorizer.refresh_token
+                cfg.save_refresh_token()
         if 'history_size' in cfg.config:
             cfg.save_history()
 

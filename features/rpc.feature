@@ -119,3 +119,15 @@ Scenario: supersede post
   And I wait for buffer to say "api/editusertext"
   And I wait for buffer to say "('thing_id', 't1_eqwe7dx')"
   Then end recording "supersede"
+
+@browser
+Scenario: Verify user message if no refresh token present
+  Given gnus stop
+  And I hide tokens
+  And gnus try start
+  And I switch to buffer "*Messages*"
+  Then I should see "nnreddit-default: Please check your browser."
+  And I unhide tokens
+  And I kill all rpc processes
+
+

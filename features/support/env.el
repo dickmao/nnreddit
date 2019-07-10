@@ -3,31 +3,19 @@
 (require 'espuds)
 (require 'f)
 
-(with-eval-after-load "python"
-  (setq python-indent-guess-indent-offset-verbose nil))
-
 (let* ((support-path (f-dirname load-file-name))
        (root-path (f-parent (f-parent support-path))))
   (add-to-list 'load-path (concat root-path "/lisp"))
-  (add-to-list 'load-path (concat root-path "/tests"))
-  (custom-set-variables
-   '(gnus-before-startup-hook (quote (toggle-debug-on-error)))
-   '(nnreddit-use-virtualenv nil)
-   '(auto-revert-verbose nil)
-   '(auto-revert-stop-on-user-input nil)
-   '(gnus-read-active-file nil)
-   `(gnus-home-directory ,(concat root-path "/tests"))
-   '(gnus-use-dribble-file nil)
-   '(gnus-read-newsrc-file nil)
-   '(gnus-save-killed-list nil)
-   '(gnus-save-newsrc-file nil)
-   '(gnus-secondary-select-methods (quote ((nnreddit ""))))
-   '(gnus-select-method (quote (nnnil)))
-   '(gnus-message-highlight-citation nil)
-   '(gnus-verbose 8)
-   '(gnus-interactive-exit (quote quiet))))
+  (add-to-list 'load-path (concat root-path "/tests")))
 
 (require 'nnreddit-test)
+
+(defmacro if-demote (demote &rest forms)
+  (declare (debug t) (indent 1))
+  `(if ,demote
+       (with-demoted-errors "demoted: %s"
+         ,@forms)
+     ,@forms))
 
 (defun cleanup ()
   (let* ((newsrc-file gnus-current-startup-file)
@@ -48,7 +36,7 @@
 
 (Fail
  (if noninteractive
-     (progn
+     (with-demoted-errors "demote: %s"
        (Then "end recordings")
        (Teardown))
    (backtrace)

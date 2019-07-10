@@ -8,7 +8,12 @@ python -m nnreddit
 import os
 import sys
 import jsonrpyc
+import argparse
 from tempfile import mkstemp
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--token-file", help="refresh token filename")
+args = parser.parse_args()
 
 os.environ["XDG_DATA_HOME"] = os.path.join(os.path.dirname(__file__), 'share')
 try:
@@ -33,7 +38,7 @@ except OSError:
         raise
 
 super_secret = os.path.join(os.path.dirname(TOKEN), 'super-secret-refresh-token')
-kwargs = { 'token_file': (super_secret if os.path.exists(super_secret) else TOKEN),
+kwargs = { 'token_file': args.token_file if args.token_file else (super_secret if os.path.exists(super_secret) else TOKEN),
            'history_file': mkstemp(dir='/var/tmp')[1],
 }
 jsonrpyc.RPC(target=AuthenticatedReddit(log_prefix=os.path.join(logdir, 'test_py.'),
