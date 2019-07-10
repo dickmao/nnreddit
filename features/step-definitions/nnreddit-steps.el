@@ -1,3 +1,15 @@
+(When "I kill all rpc processes$"
+      (lambda ()
+        (nnreddit-request-close)))
+
+(When "I hide tokens$"
+      (lambda ()
+        (setq nnreddit--python-module-extra-args '("--token-file" "/dev/null"))))
+
+(When "I unhide tokens$"
+      (lambda ()
+        (setq nnreddit--python-module-extra-args nil)))
+
 (When "^rpc \"\\(.*\\)\" returns \"\\(.*\\)\"$"
       (lambda (command result)
         (should (string= result (nnreddit-rpc-call nil nil command)))))
@@ -31,12 +43,13 @@
 (When "^I dump buffer"
       (lambda () (message "%s" (buffer-string))))
 
-(When "^gnus start$"
-      (lambda ()
+(When "^gnus \\(try \\)?start\\(\\)$"
+      (lambda (demote _workaround)
         (nnreddit-aif (get-buffer gnus-group-buffer)
             (switch-to-buffer it)
-          (When "I call \"gnus\"")
-          (Then "I should be in buffer \"%s\"" gnus-group-buffer))))
+          (if-demote demote
+            (When "I call \"gnus\"")
+            (Then "I should be in buffer \"%s\"" gnus-group-buffer)))))
 
 (When "^gnus stop$"
       (lambda ()

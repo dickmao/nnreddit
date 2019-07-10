@@ -4,10 +4,30 @@
 ;; https://github.com/millejoh/emacs-ipython-notebook
 ;; licensed under GNU General Public License v3.0.
 
+(custom-set-variables
+ '(gnus-before-startup-hook (quote (toggle-debug-on-error)))
+ '(nnreddit-venv nil)
+ '(auto-revert-verbose nil)
+ '(auto-revert-stop-on-user-input nil)
+ '(gnus-read-active-file nil)
+ `(gnus-home-directory ,(file-name-directory load-file-name))
+ '(gnus-use-dribble-file nil)
+ '(gnus-read-newsrc-file nil)
+ '(gnus-save-killed-list nil)
+ '(gnus-save-newsrc-file nil)
+ '(gnus-secondary-select-methods (quote ((nnreddit ""))))
+ '(gnus-select-method (quote (nnnil)))
+ '(gnus-message-highlight-citation nil)
+ '(gnus-verbose 8)
+ '(gnus-interactive-exit (quote quiet)))
+
 (require 'nnreddit)
 (require 'cl-lib)
 (require 'ert)
 (require 'message)
+
+(with-eval-after-load "python"
+  (setq python-indent-guess-indent-offset-verbose nil))
 
 (defun nnreddit-test-wait-for (predicate &optional predargs ms interval continue)
   "Wait until PREDICATE function returns non-`nil'.

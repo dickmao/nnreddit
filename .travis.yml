@@ -42,14 +42,7 @@ install:
       eval "$(pyenv init -)"
       pyenv activate $TOXENV
     fi
-  - pip install virtualenvwrapper
   - pip install pylint
-  - |
-    if [ "x$TRAVIS_OS_NAME" = "xosx" ]; then
-      source $HOME/.pyenv/versions/2.7.*/envs/py27/bin/virtualenvwrapper.sh
-    else
-      source virtualenvwrapper.sh
-    fi
   - pip install -r requirements-dev.txt
 
 before_script:
@@ -65,5 +58,5 @@ before_script:
   - sh tools/install-cask.sh
 
 script:
-  - make test-install
+  - make test-venv
   - make test || ( ( printf "To diagnose, travis logs -i | dos2unix | sed '/^begin 644/,/^end/!d' | uudecode\n" ) && ( zip -q - tests/log/* 2>/dev/null | uuencode log.zip ) && false)

@@ -67,7 +67,14 @@ test-install:
 	           (oset rcp :branch my-branch) \
 	           (oset rcp :commit my-commit))" \
 	--eval "(package-build--package rcp (package-build--checkout rcp))" \
-	--eval "(package-install-file (car (file-expand-wildcards (concat package-build-archive-dir \"nnreddit*.tar\"))))" 2>&1 | egrep -a "Error: " )
+	--eval "(package-install-file (car (file-expand-wildcards (concat package-build-archive-dir \"nnreddit*.tar\"))))" 2>&1 | egrep -ia "error: |fatal" )
+
+.PHONY: test-venv
+test-venv: test-install
+	emacs -Q --batch --eval "(package-initialize)" \
+	                 --eval "(custom-set-variables (quote (gnus-verbose 8)))" \
+	                 --eval "(require (quote nnreddit))" \
+	                 --eval "nnreddit-venv"
 
 .PHONY: test-unit
 test-unit:

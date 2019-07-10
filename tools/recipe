@@ -1,2 +1,2 @@
 (nnreddit :repo "dickmao/nnreddit" :fetcher github
-          :files ("lisp/*.el" "setup.py" "nnreddit"))
+          :files ("lisp/*.el" "setup.py" "requirements.txt" "nnreddit"))
