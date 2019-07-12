@@ -73,7 +73,8 @@
   (let* ((library-directory (file-name-directory (locate-library "nnreddit")))
          (defacto-version (file-name-nondirectory
                            (directory-file-name library-directory)))
-         (result (concat defacto-version "-" nnreddit-python-command))
+         (venv-id (concat defacto-version "-" nnreddit-python-command))
+         (result (concat venv-location venv-id))
          (requirements (concat library-directory "requirements.txt"))
          (install-args (if (file-exists-p requirements)
                            (list "-r" requirements)
@@ -96,24 +97,30 @@
            (unless (zerop pip-status)
              (gnus-message 3 "nnreddit-venv: pip install exit %s" pip-status)))
           (t (gnus-message 3 "nnreddit-venv: pip install signal %s" pip-status)))
-    (prog1 result
-      (gnus-message 7 "nnreddit-venv: %s%s" venv-location result)
-      (unless (file-exists-p venv-location)
-        (make-directory venv-location))
-      (unless (member result (split-string (venv-list-virtualenvs)))
-        (gnus-message 5 "nnreddit-venv: installing venv to %s..." result)
-        (condition-case err
-            (progn
-              (venv-mkvirtualenv-using nnreddit-python-command result)
-              (venv-with-virtualenv-shell-command
-               result
-               ;; `python` and not `nnreddit-python-command` because
-               ;; venv normalizes the executable to `python`.
-               (format "cd %s && python setup.py install" library-directory)))
-          (error (venv-rmvirtualenv result)
-                 (error (error-message-string err))))
-        (gnus-message 5 "nnreddit-venv: installing venv to %s...done" result))))
-  "Venv directory name in `venv-location'.
+    (gnus-message 7 "nnreddit-venv: %s" result)
+    (unless (file-exists-p venv-location)
+      (make-directory venv-location))
+    (cond ((member venv-id (split-string (venv-list-virtualenvs))) result)
+          (t (gnus-message 5 "nnreddit-venv: installing venv to %s..." result)
+             (condition-case err
+                 (progn
+                   (venv-mkvirtualenv-using nnreddit-python-command venv-id)
+                   (venv-with-virtualenv-shell-command
+                    venv-id
+                    ;; `python` and not `nnreddit-python-command` because
+                    ;; venv normalizes the executable to `python`.
+                    (format "cd %s && python setup.py install" library-directory))
+                   (gnus-message 5 "nnreddit-venv: installing venv to %s...done" result)
+                   result)
+               (error (when (venv-is-valid venv-id)
+                        (condition-case rmerr
+                            (venv-rmvirtualenv venv-id)
+                          (error (gnus-message 3 (format "venv-rmvirtualenv: %s"
+                                                         (error-message-string rmerr))))))
+                      (gnus-message 3 (format "nnreddit-venv: %s"
+                                              (error-message-string err)))
+                      "/dev/null")))))
+  "Full path to venv directory.
 
 To facilitate upgrades, the name gloms a de facto version (the directory
 name where this file resides) and the `nnreddit-python-command'."
@@ -313,11 +320,11 @@ Normalize it to \"nnreddit-default\"."
 
 Process stays the same, but the jsonrpc connection (a cheap struct) gets reinstantiated with every call."
   (nnreddit--normalize-server)
-  (let* ((connection (json-rpc--create :process (nnreddit-rpc-get server)
-                                       :host nnreddit-localhost
-                                       :id-counter 0))
-         (result (apply #'nnreddit-rpc-request connection generator_kwargs method args)))
-    result))
+  (nnreddit-and-let* ((proc (nnreddit-rpc-get server))
+                      (connection (json-rpc--create :process proc
+                                                    :host nnreddit-localhost
+                                                    :id-counter 0)))
+    (apply #'nnreddit-rpc-request connection generator_kwargs method args)))
 
 (defun nnreddit-vote-current-article (vote)
   "VOTE is +1, -1, 0."
@@ -725,48 +732,55 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
     (when (string-prefix-p magic string)
       (message "%s: %s" server (substring string (length magic))))))
 
+(defsubst nnreddit--install-failed ()
+  "If we can't install the virtualenv then all bets are off."
+  (string= nnreddit-venv "/dev/null"))
+
 (defun nnreddit-rpc-get (&optional server)
   "Retrieve the PRAW process for SERVER."
   (nnreddit--normalize-server)
-  (let ((proc (get-buffer-process (get-buffer-create (format " *%s*" server)))))
-    (unless proc
-      (let* ((nnreddit-el-dir (directory-file-name (file-name-directory (locate-library "nnreddit"))))
-             (nnreddit-py-dir (directory-file-name
-                               (if (string= "lisp" (file-name-base nnreddit-el-dir))
-                                   (file-name-directory nnreddit-el-dir)
-                                 nnreddit-el-dir)))
-             (python-shell-extra-pythonpaths (list nnreddit-py-dir))
-             (process-environment (python-shell-calculate-process-environment))
-             (python-executable (if nnreddit-venv
-                                    (format "%s%s/bin/python" venv-location nnreddit-venv)
-                                  (executable-find nnreddit-python-command)))
-             (python-module (if (featurep 'nnreddit-test) "tests" "nnreddit"))
-             (praw-command (append (list python-executable "-m" python-module)
-                                   nnreddit--python-module-extra-args)))
-        (unless (featurep 'nnreddit-test)
-          (setq praw-command (append praw-command (list "--localhost" nnreddit-localhost)))
-          (when nnreddit-log-rpc
-            (setq nnreddit-rpc-log-filename
-                  (concat (file-name-as-directory temporary-file-directory)
-                          "nnreddit-rpc-log."))
-            (setq praw-command (append praw-command
-                                       (list "--log" nnreddit-rpc-log-filename)))))
-        (setq proc (make-process :name server
-                                 :buffer (get-buffer-create (format " *%s*" server))
-                                 :command praw-command
-                                 :connection-type 'pipe
-                                 :noquery t
-                                 :sentinel #'nnreddit-sentinel
-                                 :stderr (get-buffer-create (format " *%s-stderr*" server))))
-        (with-current-buffer (get-buffer-create (format " *%s-stderr*" server))
-          (add-hook 'after-change-functions
-                    (apply-partially 'nnreddit--message-user server)
-                    nil t)))
-      (push proc nnreddit-processes))
-    proc))
+  (unless (nnreddit--install-failed)
+    (let ((proc (get-buffer-process (get-buffer-create (format " *%s*" server)))))
+      (unless proc
+        (let* ((nnreddit-el-dir (directory-file-name (file-name-directory (locate-library "nnreddit"))))
+               (nnreddit-py-dir (directory-file-name
+                                 (if (string= "lisp" (file-name-base nnreddit-el-dir))
+                                     (file-name-directory nnreddit-el-dir)
+                                   nnreddit-el-dir)))
+               (python-shell-extra-pythonpaths (list nnreddit-py-dir))
+               (process-environment (python-shell-calculate-process-environment))
+               (python-executable (if nnreddit-venv
+                                      (format "%s/bin/python" nnreddit-venv)
+                                    (executable-find nnreddit-python-command)))
+               (python-module (if (featurep 'nnreddit-test) "tests" "nnreddit"))
+               (praw-command (append (list python-executable "-m" python-module)
+                                     nnreddit--python-module-extra-args)))
+          (unless (featurep 'nnreddit-test)
+            (setq praw-command (append praw-command (list "--localhost" nnreddit-localhost)))
+            (when nnreddit-log-rpc
+              (setq nnreddit-rpc-log-filename
+                    (concat (file-name-as-directory temporary-file-directory)
+                            "nnreddit-rpc-log."))
+              (setq praw-command (append praw-command
+                                         (list "--log" nnreddit-rpc-log-filename)))))
+          (setq proc (make-process :name server
+                                   :buffer (get-buffer-create (format " *%s*" server))
+                                   :command praw-command
+                                   :connection-type 'pipe
+                                   :noquery t
+                                   :sentinel #'nnreddit-sentinel
+                                   :stderr (get-buffer-create (format " *%s-stderr*" server))))
+          (with-current-buffer (get-buffer-create (format " *%s-stderr*" server))
+            (add-hook 'after-change-functions
+                      (apply-partially 'nnreddit--message-user server)
+                      nil t)))
+        (push proc nnreddit-processes))
+      proc)))
 
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
-  "Send to CONNECTION a request with generator KWARGS calling METHOD ARGS.  `json-rpc--request' assumes HTTP transport which jsonrpyc does not."
+  "Send to CONNECTION a request with generator KWARGS calling METHOD ARGS.
+
+Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so we make our own."
   (unless (hash-table-p kwargs)
     (setq kwargs #s(hash-table)))
   (let* ((id (cl-incf (json-rpc-id-counter connection)))
