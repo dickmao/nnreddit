@@ -512,14 +512,22 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
         (when (gnus-group-entry gnus-newsgroup-name)
           ;; seen-indices are one-indexed !
           (let* ((newsrc-seen-index-now
-                  (nnreddit-aif (seq-position
-                                 headers
-                                 newsrc-seen-id
-                                 (lambda (plst newsrc-seen-id)
-                                   (or (null newsrc-seen-id)
-                                       (>= (nnreddit--base10 (plist-get plst :id))
-                                           (nnreddit--base10 newsrc-seen-id)))))
-                      (1+ it) 0))
+                  (if (null newsrc-seen-id)
+                      1
+                    (cl-loop for cand = nil
+                             for plst in headers
+                             for i = 1 then (1+ i)
+                             if (= (nnreddit--base10 (plist-get plst :id))
+                                   (nnreddit--base10 newsrc-seen-id))
+                             do (gnus-message 7 "nnreddit-request-group: exact=%s" i)
+                             and return i ;; do not go to finally
+                             end
+                             if (and (null cand)
+                                     (> (nnreddit--base10 (plist-get plst :id))
+                                        (nnreddit--base10 newsrc-seen-id)))
+                             do (gnus-message 7 "nnreddit-request-group: cand=%s" (setq cand i))
+                             end
+                             finally return (or cand 0))))
                  (updated-seen-index (- num-headers
                                         (nnreddit-aif
                                             (seq-position (reverse headers) nil
