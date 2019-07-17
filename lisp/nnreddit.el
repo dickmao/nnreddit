@@ -55,6 +55,24 @@
 
 (nnoo-declare nnreddit)
 
+(defmacro nnreddit--gethash (string hashtable)
+  "Get corresponding value of STRING from HASHTABLE.
+
+Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtables."
+  `(,(if (fboundp 'gnus-gethash-safe)
+         'gnus-gethash-safe
+       'gethash)
+    ,string ,hashtable))
+
+(defmacro nnreddit--sethash (string value hashtable)
+  "Set corresponding value of STRING to VALUE in HASHTABLE.
+
+Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtables."
+  `(,(if (fboundp 'gnus-sethash)
+         'gnus-sethash
+       'puthash)
+    ,string ,value ,hashtable))
+
 (defcustom nnreddit-python-command (if (equal system-type 'windows-nt)
                                        (or (executable-find "py")
                                            (executable-find "pythonw")
@@ -278,7 +296,7 @@ Normalize it to \"nnreddit-default\"."
 
 (defsubst nnreddit-get-headers (group)
   "List headers from GROUP."
-  (gnus-gethash-safe group nnreddit-headers-hashtb))
+  (nnreddit--gethash group nnreddit-headers-hashtb))
 
 (defun nnreddit-find-header (group id)
   "O(n) search of GROUP headers for ID."
@@ -293,17 +311,17 @@ Normalize it to \"nnreddit-default\"."
   (unless depth
     (setq depth most-positive-fixnum))
   (when (> depth 0)
-    (nreverse (cl-loop with parent-id = (gnus-gethash-safe name nnreddit-refs-hashtb)
+    (nreverse (cl-loop with parent-id = (nnreddit--gethash name nnreddit-refs-hashtb)
                        for level = 0 then level
                        for name = parent-id then
-                       (gnus-gethash-safe name nnreddit-refs-hashtb)
+                       (nnreddit--gethash name nnreddit-refs-hashtb)
                        until (null name)
                        collect name
                        until (>= (cl-incf level) depth)))))
 
 (defsubst nnreddit-sort-append-headers (group &rest lvp)
   "Append to hashed headers of GROUP the LVP (list of vector of plists)."
-  (gnus-sethash group (append (nnreddit-get-headers group)
+  (nnreddit--sethash group (append (nnreddit-get-headers group)
                               (apply #'nnreddit--sort-headers lvp))
                 nnreddit-headers-hashtb))
 
@@ -443,7 +461,7 @@ Originally written by Paul Issartel."
 
 (defun nnreddit-add-entry (hashtb e field)
   "Add to HASHTB the pair consisting of entry E's name to its FIELD."
-  (gnus-sethash (plist-get e :name) (plist-get e field) hashtb))
+  (nnreddit--sethash (plist-get e :name) (plist-get e field) hashtb))
 
 (defun nnreddit--filter-after (after-this vop)
   "Get elements created AFTER-THIS in VOP (vector of plists)."
@@ -512,14 +530,22 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
         (when (gnus-group-entry gnus-newsgroup-name)
           ;; seen-indices are one-indexed !
           (let* ((newsrc-seen-index-now
-                  (nnreddit-aif (seq-position
-                                 headers
-                                 newsrc-seen-id
-                                 (lambda (plst newsrc-seen-id)
-                                   (or (null newsrc-seen-id)
-                                       (>= (nnreddit--base10 (plist-get plst :id))
-                                           (nnreddit--base10 newsrc-seen-id)))))
-                      (1+ it) 0))
+                  (if (null newsrc-seen-id)
+                      1
+                    (cl-loop for cand = nil
+                             for plst in headers
+                             for i = 1 then (1+ i)
+                             if (= (nnreddit--base10 (plist-get plst :id))
+                                   (nnreddit--base10 newsrc-seen-id))
+                             do (gnus-message 7 "nnreddit-request-group: exact=%s" i)
+                             and return i ;; do not go to finally
+                             end
+                             if (and (null cand)
+                                     (> (nnreddit--base10 (plist-get plst :id))
+                                        (nnreddit--base10 newsrc-seen-id)))
+                             do (gnus-message 7 "nnreddit-request-group: cand=%s" (setq cand i))
+                             end
+                             finally return (or cand 0))))
                  (updated-seen-index (- num-headers
                                         (nnreddit-aif
                                             (seq-position (reverse headers) nil
@@ -632,7 +658,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
            "\n")
           (nnreddit-and-let*
            ((parent-name (plist-get header :parent_id)) ;; parent_id is full
-            (parent-author (or (gnus-gethash-safe parent-name nnreddit-authors-hashtb)
+            (parent-author (or (nnreddit--gethash parent-name nnreddit-authors-hashtb)
                                "Someone"))
             (parent-body (nnreddit--get-body parent-name group server)))
            (insert (nnreddit--citation-wrap parent-author parent-body)))
