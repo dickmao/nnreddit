@@ -631,6 +631,8 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
      0 0 nil
      (append `((X-Reddit-Name . ,(plist-get header :name)))
              `((X-Reddit-ID . ,(plist-get header :id)))
+             (nnreddit-aif (plist-get header :permalink)
+                           `((X-Reddit-Permalink . ,it)))
              (and (integerp score)
                   `((X-Reddit-Score . ,(number-to-string score))))
              (and (integerp num-comments)
@@ -644,6 +646,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
       (let* ((header (nnreddit--get-header article-number group))
              (mail-header (nnreddit--make-header article-number))
              (score (cdr (assq 'X-Reddit-Score (mail-header-extra mail-header))))
+             (permalink (cdr (assq 'X-Reddit-Permalink (mail-header-extra mail-header))))
              (body (nnreddit--get-body (plist-get header :name) group server)))
         (when body
           (insert
@@ -654,6 +657,9 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
            "Message-ID: " (mail-header-id mail-header) "\n"
            "References: " (mail-header-references mail-header) "\n"
            "Content-Type: text/html; charset=utf-8" "\n"
+           (if permalink
+               (format "Archived-at: <https://www.reddit.com%s>\n" permalink)
+             "")
            "Score: " score "\n"
            "\n")
           (nnreddit-and-let*
@@ -908,6 +914,11 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
                                 (gnus-cited-lines-visible '(2 . 2))
                                 (gnus-auto-extend-newsgroup nil)
                                 (gnus-add-timestamp-to-message t)
+                                (gnus-header-button-alist
+                                 (quote ,(cons '("^\\(Message-I[Dd]\\|^In-Reply-To\\):" "<[^<>]+>"
+                                           0 (>= gnus-button-message-level 0)
+                                           gnus-button-message-id 0)
+                                         (cdr gnus-header-button-alist))))
                                 (gnus-visible-headers ,(concat gnus-visible-headers "\\|^Score:"))))
 
 (nnoo-define-skeleton nnreddit)
