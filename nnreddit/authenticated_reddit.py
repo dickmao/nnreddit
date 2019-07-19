@@ -280,6 +280,11 @@ class AuthenticatedReddit(Reddit):
                 result = self.comment(id).body_html
         return result
 
+    def canonical_spelling(self, display_name):
+        lazy = self.subreddit(display_name)
+        lazy._fetch()
+        return lazy.display_name
+
     def submissions(self, display_name):
         if display_name not in self._stream_subm:
             self._stream_subm[display_name] = self.subreddit(display_name).\
