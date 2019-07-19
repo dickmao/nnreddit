@@ -212,13 +212,6 @@ Do not set this to \"localhost\" as a numeric IP is required for the oauth hands
     (gnus-define-keys (nnreddit-group-mode-map "R" gnus-group-mode-map)
       "g" nnreddit-goto-group)))
 
-(defun nnreddit-goto-group (realname)
-  "Jump to the REALNAME subreddit."
-  (interactive (list (read-no-blanks-input "Subreddit: r/")))
-  (let ((group (gnus-group-full-name realname "nnreddit")))
-    (gnus-activate-group group t)
-    (gnus-group-read-group t t group)))
-
 (defsubst nnreddit-novote ()
   "Retract vote."
   (interactive)
@@ -343,6 +336,14 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
                                                     :host nnreddit-localhost
                                                     :id-counter 0)))
     (apply #'nnreddit-rpc-request connection generator_kwargs method args)))
+
+(defun nnreddit-goto-group (realname)
+  "Jump to the REALNAME subreddit."
+  (interactive (list (read-no-blanks-input "Subreddit: r/")))
+  (let* ((canonical (nnreddit-rpc-call nil nil "canonical_spelling" realname))
+         (group (gnus-group-full-name canonical "nnreddit")))
+    (gnus-activate-group group t)
+    (gnus-group-read-group t t group)))
 
 (defun nnreddit-vote-current-article (vote)
   "VOTE is +1, -1, 0."
@@ -530,7 +531,8 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
         (when (gnus-group-entry gnus-newsgroup-name)
           ;; seen-indices are one-indexed !
           (let* ((newsrc-seen-index-now
-                  (if (null newsrc-seen-id)
+                  (if (or (not (stringp newsrc-seen-id))
+                          (zerop (nnreddit--base10 newsrc-seen-id)))
                       1
                     (cl-loop for cand = nil
                              for plst in headers
@@ -729,18 +731,29 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
      nil)))
 
 (deffoo nnreddit-request-list (&optional server)
-  "Set flag for ensuing `nnreddit-request-group' to avoid going out to PRAW yet again."
   (nnreddit--normalize-server)
   (with-current-buffer nntp-server-buffer
-    (let ((groups (nnreddit-rpc-call server nil "user_subreddits")))
+    (let ((groups (nnreddit-rpc-call server nil "user_subreddits"))
+          (newsrc (cl-mapcan (lambda (info)
+                               (when (and (equal "nnreddit:" (gnus-info-method info))
+                                          (<= (gnus-info-level info)
+                                              gnus-level-default-subscribed))
+                                 (list (gnus-info-group info))))
+                             gnus-newsrc-alist)))
       (mapc (lambda (realname)
               (let ((group (gnus-group-full-name realname '("nnreddit" (or server "")))))
                 (erase-buffer)
                 (gnus-message 5 "nnreddit-request-list: scanning %s..." realname)
                 (gnus-activate-group group t)
                 (gnus-message 5 "nnreddit-request-list: scanning %s...done" realname)
-                (gnus-group-unsubscribe-group group gnus-level-default-subscribed t)))
+                (gnus-group-unsubscribe-group group gnus-level-default-subscribed t)
+                (setq newsrc (cl-remove group newsrc :test #'string=))))
             groups)
+      (mapc (lambda (fullname)
+              (gnus-message 4 "nnreddit-request-list: missing subscription %s" fullname)
+              (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name fullname))
+              (gnus-activate-group fullname t))
+            newsrc)
       (erase-buffer)
       (mapc (lambda (group)
               (insert (format "%s %d 1 y\n" group

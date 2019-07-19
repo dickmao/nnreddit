@@ -14,17 +14,17 @@
       (lambda (command result)
         (should (string= result (nnreddit-rpc-call nil nil command)))))
 
+(When "^I should be in buffer like \"\\(.+\\)\"$"
+      (lambda (prefix)
+        (should (string-prefix-p prefix (buffer-name)))))
+
 (When "^I goto group \"\\(.*\\)\"$"
       (lambda (group)
         (Given "I start an action chain")
         (And "I press \"R g\"")
         (And "I type \"%s\"" group)
         (And "I execute the action chain")
-        (Then (format "I should be in buffer \"*Summary nnreddit:%s*\"" group))))
-
-(When "^I should be in buffer like \"\\(.+\\)\"$"
-      (lambda (prefix)
-        (should (string-prefix-p prefix (buffer-name)))))
+        (Then "I should be in buffer like \"*Summary nnreddit:\"")))
 
 (When "^I go to string \"\\(.+\\)\"$"
       (lambda (string)

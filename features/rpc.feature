@@ -15,15 +15,15 @@ Scenario: random subreddit
 Scenario: subscribe and unsubscribe
   When begin recording "subscribe"
   Given gnus start
-  And I goto group "chvrches"
+  And I goto group "test"
   And I press "q"
   Then I should be in buffer "*Group*"
-  And I go to word "chvrches"
+  And I go to word "test"
   And I press "u"
   And I open latest "log/test_py"
   Then I wait for buffer to say "('action', 'sub')"
   And I switch to buffer "*Group*"
-  And I go to word "chvrches"
+  And I go to word "test"
   And I press "u"
   And I open latest "log/test_py"
   Then I wait for buffer to say "('action', 'unsub')"
@@ -120,6 +120,17 @@ Scenario: supersede post
   And I wait for buffer to say "('thing_id', 't1_eqwe7dx')"
   Then end recording "supersede"
 
+@canonical
+Scenario: Going to hongkong make me really go to HongKong
+  Given gnus stop
+  When begin recording "canonical"
+  Given gnus start
+  And I goto group "hongkong"
+  And I press "q"
+  Then I should be in buffer "*Group*"
+  And I should see "HongKong"
+  Then end recording "canonical"
+
 @browser
 Scenario: Verify user message if no refresh token present
   Given gnus stop
@@ -129,5 +140,3 @@ Scenario: Verify user message if no refresh token present
   Then I should see "nnreddit-default: Please check your browser."
   And I unhide tokens
   And I kill all rpc processes
-
-
