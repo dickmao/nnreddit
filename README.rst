@@ -1,6 +1,6 @@
-==============
-|build-status|
-==============
+==========================
+|melpa-dev| |build-status|
+==========================
 
 A Gnus backend for Reddit.
 
@@ -9,9 +9,9 @@ A Gnus backend for Reddit.
    :target: https://travis-ci.org/dickmao/nnreddit
    :alt: Build Status
 .. |melpa-dev|
-   image:: http://melpa.milkbox.net/packages/ein-badge.svg
-   :target: http://melpa.milkbox.net/#/ein
-   :alt: MELPA development version
+   image:: https://melpa.org/packages/nnreddit-badge.svg
+   :target: http://melpa.org/#/nnreddit
+   :alt: MELPA current version
 .. |melpa-stable|
    image:: http://melpa-stable.milkbox.net/packages/ein-badge.svg
    :target: http://melpa-stable.milkbox.net/#/ein
