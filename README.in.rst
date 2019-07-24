@@ -1,6 +1,4 @@
-==========================
-|melpa-dev| |build-status|
-==========================
+|build-status| |melpa-dev|
 
 .. COMMENTARY (see Makefile)
 
