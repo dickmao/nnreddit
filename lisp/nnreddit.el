@@ -948,7 +948,10 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
 
 (defun nnreddit-group-mode-activate ()
   "Augment the `gnus-group-mode-map' unconditionally."
-  (setq gnus-group-change-level-function 'nnreddit-update-subscription)
+  (if (boundp 'gnus-group-change-level-functions)
+      (add-hook 'gnus-group-change-level-functions 'nnreddit-update-subscription nil 'local)
+    (custom-set-variables
+     '(gnus-group-change-level-function 'nnreddit-update-subscription)))
   (nnreddit-group-mode))
 
 ;; I believe I did try buffer-localizing hooks, and it wasn't sufficient
