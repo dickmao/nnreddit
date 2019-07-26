@@ -314,7 +314,7 @@ Normalize it to \"nnreddit-default\"."
 
 (defsubst nnreddit-sort-append-headers (group &rest lvp)
   "Append to hashed headers of GROUP the LVP (list of vector of plists)."
-  (nnreddit--sethash group (append (nnreddit-get-headers group)
+  (nnreddit--sethash group (nconc (nnreddit-get-headers group)
                               (apply #'nnreddit--sort-headers lvp))
                 nnreddit-headers-hashtb))
 
