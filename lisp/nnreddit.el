@@ -314,7 +314,7 @@ Normalize it to \"nnreddit-default\"."
 
 (defsubst nnreddit-sort-append-headers (group &rest lvp)
   "Append to hashed headers of GROUP the LVP (list of vector of plists)."
-  (nnreddit--sethash group (append (nnreddit-get-headers group)
+  (nnreddit--sethash group (nconc (nnreddit-get-headers group)
                               (apply #'nnreddit--sort-headers lvp))
                 nnreddit-headers-hashtb))
 
@@ -948,7 +948,10 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
 
 (defun nnreddit-group-mode-activate ()
   "Augment the `gnus-group-mode-map' unconditionally."
-  (setq gnus-group-change-level-function 'nnreddit-update-subscription)
+  (if (boundp 'gnus-group-change-level-functions)
+      (add-hook 'gnus-group-change-level-functions 'nnreddit-update-subscription nil 'local)
+    (custom-set-variables
+     '(gnus-group-change-level-function (quote nnreddit-update-subscription))))
   (nnreddit-group-mode))
 
 ;; I believe I did try buffer-localizing hooks, and it wasn't sufficient
