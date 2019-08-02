@@ -534,7 +534,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                   (if (or (not (stringp newsrc-seen-id))
                           (zerop (nnreddit--base10 newsrc-seen-id)))
                       1
-                    (cl-loop for cand = nil
+                    (cl-loop with cand
                              for plst in headers
                              for i = 1 then (1+ i)
                              if (= (nnreddit--base10 (plist-get plst :id))
