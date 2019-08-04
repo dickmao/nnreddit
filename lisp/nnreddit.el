@@ -555,7 +555,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                                                             (not (plist-get plst :title))))
                                             it -1)))
                  (updated-seen-id (nnreddit-aif (nth (1- updated-seen-index) headers)
-                                      (plist-get it :id) ""))
+                                      (plist-get it :id) nil))
                  (delta (if newsrc-seen-index
                             (max 0 (- newsrc-seen-index newsrc-seen-index-now))
                           0))
@@ -579,12 +579,13 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
              info
              (append (assq-delete-all 'seen (gnus-info-marks info))
                      (list `(seen (1 . ,num-headers)))))
-            (while (assq 'last-seen params)
-              (gnus-alist-pull 'last-seen params))
-            (gnus-info-set-params
-             info
-             (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
-             t)
+            (when updated-seen-id
+              (while (assq 'last-seen params)
+                (gnus-alist-pull 'last-seen params))
+              (gnus-info-set-params
+               info
+               (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
+               t))
             (gnus-set-info gnus-newsgroup-name info)
             (gnus-message 7 "nnreddit-request-group: new info=%s" info)))))
     t))
