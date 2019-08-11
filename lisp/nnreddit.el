@@ -187,12 +187,14 @@ Do not set this to \"localhost\" as a numeric IP is required for the oauth hands
   :lighter " Reddit"
   :keymap gnus-article-mode-map
 
-  (when nnreddit-article-mode
-    (gnus-define-keys (nnreddit-article-mode-map "R" gnus-article-mode-map)
-      "0" nnreddit-novote
-      "-" nnreddit-downvote
-      "=" nnreddit-upvote
-      "+" nnreddit-upvote)))
+  (if nnreddit-article-mode
+      (gnus-define-keys (nnreddit-article-mode-map "R" gnus-article-mode-map)
+        "0" nnreddit-obsolete-novote
+        "-" nnreddit-obsolete-downvote
+        "=" nnreddit-obsolete-upvote
+        "+" nnreddit-obsolete-upvote)
+    ;; else undefine them?
+    ))
 
 (define-minor-mode nnreddit-summary-mode
   "Disallow \"reply\" commands in `gnus-summary-mode-map'.
@@ -200,7 +202,16 @@ Do not set this to \"localhost\" as a numeric IP is required for the oauth hands
 \\{nnreddit-summary-mode-map}
 "
   :lighter " Reddit"
-  :keymap nnreddit-summary-mode-map)
+  :keymap nnreddit-summary-mode-map
+
+  (if nnreddit-summary-mode
+      (gnus-define-keys (nnreddit-summary-mode-map "V" gnus-summary-mode-map)
+        "0" nnreddit-novote
+        "-" nnreddit-downvote
+        "=" nnreddit-upvote
+        "+" nnreddit-upvote)
+    ;; else undefine them?
+    ))
 
 (define-minor-mode nnreddit-group-mode
   "Add `R-g' go-to-subreddit binding to *Group*.
@@ -212,15 +223,35 @@ Do not set this to \"localhost\" as a numeric IP is required for the oauth hands
     (gnus-define-keys (nnreddit-group-mode-map "R" gnus-group-mode-map)
       "g" nnreddit-goto-group)))
 
-(defsubst nnreddit-novote ()
+(defsubst nnreddit-obsolete-novote ()
   "Retract vote."
   (interactive)
+  (message "Deprecated.  Use V-0 instead.")
+  (call-interactively #'nnreddit-novote))
+
+(defsubst nnreddit-novote (&optional deprecated)
+  "Retract vote."
+  (interactive)
+  (when deprecated
+    (message "Deprecated.  Use V-0 instead."))
   (nnreddit-vote-current-article 0))
+
+(defsubst nnreddit-obsolete-downvote ()
+  "Downvote the article in current buffer."
+  (interactive)
+  (message "Deprecated.  Use V-- instead.")
+  (call-interactively #'nnreddit-downvote))
 
 (defsubst nnreddit-downvote ()
   "Downvote the article in current buffer."
   (interactive)
   (nnreddit-vote-current-article -1))
+
+(defsubst nnreddit-obsolete-upvote ()
+  "Upvote the article in current buffer."
+  (interactive)
+  (message "Deprecated.  Use V-= instead.")
+  (call-interactively #'nnreddit-upvote))
 
 (defsubst nnreddit-upvote ()
   "Upvote the article in current buffer."
