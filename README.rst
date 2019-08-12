@@ -54,7 +54,7 @@ Create a post via ``a``.
 
 Reply to articles with ``f`` or ``r``.  Include original with ``F``.
 
-Vote articles by first entering the Article buffer, then ``R -`` (down), ``R =`` (up), or ``R 0`` (retract).
+Vote articles via ``R -`` (down), ``R =`` (up), or ``R 0`` (retract).
 
 From the ``*Group*`` buffer, press ``g`` to refresh all subreddits.  ``M-g`` on a particular subreddit to refresh individually.
 

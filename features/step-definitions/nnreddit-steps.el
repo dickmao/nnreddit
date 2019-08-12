@@ -45,7 +45,7 @@
 
 (When "^gnus \\(try \\)?start\\(\\)$"
       (lambda (demote _workaround)
-        (nnreddit-aif (get-buffer gnus-group-buffer)
+        (aif (get-buffer gnus-group-buffer)
             (switch-to-buffer it)
           (if-demote demote
             (When "I call \"gnus\"")
@@ -53,7 +53,7 @@
 
 (When "^gnus stop$"
       (lambda ()
-        (nnreddit-aif (get-buffer gnus-group-buffer)
+        (aif (get-buffer gnus-group-buffer)
             (progn (switch-to-buffer it)
                    (And "I press \"q\"")
                    (switch-to-buffer "*scratch*")))))

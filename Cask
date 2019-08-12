@@ -6,7 +6,5 @@
 (development
  (depends-on "ert-runner")
  (depends-on "ecukes")
- (depends-on "virtualenvwrapper")
- (depends-on "json-rpc")
  (depends-on "f")
 )
