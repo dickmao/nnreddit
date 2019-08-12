@@ -352,7 +352,7 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
               (if (eq (gnus-summary-article-number) (cdr gnus-article-current))
                   (progn (with-current-buffer gnus-article-buffer
                            (let ((inhibit-read-only t))
-                             (nnheader-replace-header "score" new-score)))
+                             (nnheader-replace-header "Score" new-score)))
                          (nnreddit-rpc-call nil nil "vote" article-name vote))
                 (message "Open the article before voting."))))))
     (error "No current article")))

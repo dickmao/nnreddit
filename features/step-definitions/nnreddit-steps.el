@@ -43,6 +43,12 @@
 (When "^I dump buffer"
       (lambda () (message "%s" (buffer-string))))
 
+(Then "^protected see message \"\\(.+\\)\"$"
+  (lambda (message)
+    (let ((msg "Expected '%s' to be included in the list of printed messages, but was not."))
+      (setq message (s-replace "\\\"" "\"" message))
+      (cl-assert (-contains? (-map (lambda (s) (if (stringp s) (s-trim s) "")) ecukes-message-log) message) nil msg message))))
+
 (When "^gnus \\(try \\)?start\\(\\)$"
       (lambda (demote _workaround)
         (aif (get-buffer gnus-group-buffer)

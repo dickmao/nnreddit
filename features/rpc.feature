@@ -54,6 +54,25 @@ Scenario: selecting group does not rescan, but M-g does
   And I should not see pattern "nnreddit-request-scan: orgmode"
   Then end recording "scan"
 
+@vote
+Scenario: Voting from summary and article buffers
+  Given gnus stop
+  When begin recording "vote"
+  Given gnus start
+  And I go to word "PostPreview"
+  And I press "RET"
+  And I should be in buffer "*Summary nnreddit:PostPreview*"
+  And I go to word "Plasky"
+  And I press "R ="
+  Then protected see message "Open the article before voting."
+  And I press "RET"
+  And I press "R ="
+  And I switch to buffer "*Article nnreddit:PostPreview*"
+  And I should see "Score: 2 +1"
+  And I press "R -"
+  And I should see "Score: 2 -1"
+  Then end recording "vote"
+
 @post
 Scenario: message-send-and-exit
   When begin recording "post"
