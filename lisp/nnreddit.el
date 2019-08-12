@@ -63,6 +63,7 @@
   "If non-nil, follow link upon `gnus-summary-select-article'.
 
 Otherwise, just display link."
+  :type 'boolean
   :group 'nnreddit)
 
 (defmacro nnreddit--gethash (string hashtable)
