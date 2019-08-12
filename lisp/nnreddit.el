@@ -47,13 +47,24 @@
 (require 'gnus-srvr)
 (require 'gnus-cache)
 (require 'gnus-bcklg)
+(require 'gnus-score)
 (require 'python)
+(require 'subr-x)
 (require 'json-rpc)
 (require 'mm-url)
 (require 'cl-lib)
 (require 'virtualenvwrapper)
+(require 'anaphora)
+(require 'request)
 
 (nnoo-declare nnreddit)
+
+(defcustom nnreddit-render-submission t
+  "If non-nil, follow link upon `gnus-summary-select-article'.
+
+Otherwise, just display link."
+  :type 'boolean
+  :group 'nnreddit)
 
 (defmacro nnreddit--gethash (string hashtable)
   "Get corresponding value of STRING from HASHTABLE.
@@ -146,17 +157,28 @@ name where this file resides) and the `nnreddit-python-command'."
                  (const :tag "Development" nil))
   :group 'nnreddit)
 
-;; keymaps made by `define-prefix-command' in `gnus-define-keys-1'
-(defvar nnreddit-article-mode-map)
-(defvar nnreddit-group-mode-map)
+;; unconditional
+(gnus-define-keys (nnreddit-group-mode-map "R" gnus-group-mode-map)
+  "g" nnreddit-goto-group)
 
-;; keymaps I make myself
+(defvar nnreddit-summary-voting-map
+  (let ((map (make-sparse-keymap)))
+    map)
+  "Voting map.")
+
 (defvar nnreddit-summary-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "r" 'gnus-summary-followup)
-    (define-key map "R" 'gnus-summary-followup-with-original)
-    (define-key map "F" 'gnus-summary-followup-with-original)
+    (define-prefix-command 'nnreddit-summary-voting-map)
+    (define-key map "R" 'nnreddit-summary-voting-map)
+    (define-key nnreddit-summary-voting-map "0" 'nnreddit-novote)
+    (define-key nnreddit-summary-voting-map "-" 'nnreddit-downvote)
+    (define-key nnreddit-summary-voting-map "=" 'nnreddit-upvote)
+    (define-key nnreddit-summary-voting-map "+" 'nnreddit-upvote)
     map))
+
+(defvar nnreddit-article-mode-map
+  (copy-keymap nnreddit-summary-mode-map)) ;; how does Gnus do this?
 
 (defcustom nnreddit-log-rpc nil
   "Turn on PRAW logging."
@@ -185,14 +207,7 @@ Do not set this to \"localhost\" as a numeric IP is required for the oauth hands
 \\{gnus-article-mode-map}
 "
   :lighter " Reddit"
-  :keymap gnus-article-mode-map
-
-  (when nnreddit-article-mode
-    (gnus-define-keys (nnreddit-article-mode-map "R" gnus-article-mode-map)
-      "0" nnreddit-novote
-      "-" nnreddit-downvote
-      "=" nnreddit-upvote
-      "+" nnreddit-upvote)))
+  :keymap nnreddit-article-mode-map)
 
 (define-minor-mode nnreddit-summary-mode
   "Disallow \"reply\" commands in `gnus-summary-mode-map'.
@@ -207,24 +222,27 @@ Do not set this to \"localhost\" as a numeric IP is required for the oauth hands
 
 \\{gnus-group-mode-map}
 "
-  :keymap gnus-group-mode-map
-  (when nnreddit-group-mode
-    (gnus-define-keys (nnreddit-group-mode-map "R" gnus-group-mode-map)
-      "g" nnreddit-goto-group)))
+  :keymap gnus-group-mode-map)
 
-(defsubst nnreddit-novote ()
+(cl-defun nnreddit-novote (&key deprecated)
   "Retract vote."
   (interactive)
+  (when deprecated
+    (message "Deprecated.  Use V-V-0 instead."))
   (nnreddit-vote-current-article 0))
 
-(defsubst nnreddit-downvote ()
+(cl-defun nnreddit-downvote (&key deprecated)
   "Downvote the article in current buffer."
   (interactive)
+  (when deprecated
+    (message "Deprecated.  Use V-V-- instead."))
   (nnreddit-vote-current-article -1))
 
-(defsubst nnreddit-upvote ()
+(cl-defun nnreddit-upvote (&key deprecated)
   "Upvote the article in current buffer."
   (interactive)
+  (when deprecated
+    (message "Deprecated.  Use V-V-= or V-V-+ instead."))
   (nnreddit-vote-current-article 1))
 
 (defvar nnreddit--seq-map-indexed
@@ -249,35 +267,6 @@ Normalize it to \"nnreddit-default\"."
     (unless (string= server canonical)
       (error "nnreddit--normalize-server: multiple servers unsupported!"))))
 
-(defmacro nnreddit-aif (test-form then-form &rest else-forms)
-  "Anaphoric if TEST-FORM THEN-FORM ELSE-FORMS.  Adapted from `e2wm:aif'."
-  (declare (debug (form form &rest form)))
-  `(let ((it ,test-form))
-     (if it ,then-form ,@else-forms)))
-(put 'nnreddit-aif 'lisp-indent-function 2)
-
-(defmacro nnreddit-aand (test &rest rest)
-  "Anaphoric conjunction of TEST and REST.  Adapted from `e2wm:aand'."
-  (declare (debug (form &rest form)))
-  `(let ((it ,test))
-     (if it ,(if rest (macroexpand-all `(nnreddit-aand ,@rest)) 'it))))
-
-(defmacro nnreddit-and-let* (bindings &rest form)
-  "Gauche's `and-let*'.  Each of BINDINGS must resolve to t before evaluating FORM."
-  (declare (debug ((&rest &or symbolp (form) (gate symbolp &optional form))
-                   body))
-           ;; See: (info "(elisp) Specification List")
-           (indent 1))
-  (if (null bindings)
-      `(progn ,@form)
-    (let* ((head (car bindings))
-           (tail (cdr bindings))
-           (rest (macroexpand-all `(nnreddit-and-let* ,tail ,@form))))
-      (cond
-       ((symbolp head) `(if ,head ,rest))
-       ((= (length head) 1) `(if ,(car head) ,rest))
-       (t `(let (,head) (if ,(car head) ,rest)))))))
-
 (defvar nnreddit-headers-hashtb (gnus-make-hashtable)
   "Group (subreddit) string -> interleaved submissions and comments sorted by created time.")
 
@@ -293,11 +282,11 @@ Normalize it to \"nnreddit-default\"."
 
 (defun nnreddit-find-header (group id)
   "O(n) search of GROUP headers for ID."
-  (nnreddit-and-let* ((headers (nnreddit-get-headers group))
-                      (found (seq-position headers id
-                                           (lambda (plst id)
-                                             (equal id (plist-get plst :id))))))
-                     (nnreddit--get-header (1+ found) group)))
+  (-when-let* ((headers (nnreddit-get-headers group))
+               (found (seq-position headers id
+                                    (lambda (plst id)
+                                      (equal id (plist-get plst :id))))))
+    (nnreddit--get-header (1+ found) group)))
 
 (defsubst nnreddit-refs-for (name &optional depth)
   "Get message ancestry for NAME up to DEPTH."
@@ -331,10 +320,10 @@ Normalize it to \"nnreddit-default\"."
 
 Process stays the same, but the jsonrpc connection (a cheap struct) gets reinstantiated with every call."
   (nnreddit--normalize-server)
-  (nnreddit-and-let* ((proc (nnreddit-rpc-get server))
-                      (connection (json-rpc--create :process proc
-                                                    :host nnreddit-localhost
-                                                    :id-counter 0)))
+  (-when-let* ((proc (nnreddit-rpc-get server))
+               (connection (json-rpc--create :process proc
+                                             :host nnreddit-localhost
+                                             :id-counter 0)))
     (apply #'nnreddit-rpc-request connection generator_kwargs method args)))
 
 (defun nnreddit-goto-group (realname)
@@ -347,21 +336,28 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 
 (defun nnreddit-vote-current-article (vote)
   "VOTE is +1, -1, 0."
-  (unless gnus-article-current ;; gnus-article-current or gnus-current-article?
-    (error "No current article"))
   (unless gnus-newsgroup-name
     (error "No current newgroup"))
-  (let* ((header (nnreddit--get-header (cdr gnus-article-current)
-                                       (gnus-group-real-name (car gnus-article-current))))
-         (orig-score (format "%s" (plist-get header :score)))
-         (new-score (if (zerop vote) orig-score
-                      (concat orig-score " "
-                              (if (> vote 0) "+" "")
-                              (format "%s" vote))))
-         (article-name (plist-get header :name)))
-    (let ((inhibit-read-only t))
-      (nnheader-replace-header "score" new-score))
-    (nnreddit-rpc-call nil nil "vote" article-name vote)))
+  (if-let ((article-number (or (cdr gnus-article-current)
+                               (gnus-summary-article-number))))
+      (let* ((header (nnreddit--get-header article-number
+                                           (gnus-group-real-name gnus-newsgroup-name)))
+             (orig-score (format "%s" (plist-get header :score)))
+             (new-score (if (zerop vote) orig-score
+                          (concat orig-score " "
+                                  (if (> vote 0) "+" "")
+                                  (format "%s" vote))))
+             (article-name (plist-get header :name)))
+        (save-excursion
+          (save-window-excursion
+            (with-current-buffer gnus-summary-buffer
+              (if (eq (gnus-summary-article-number) (cdr gnus-article-current))
+                  (progn (with-current-buffer gnus-article-buffer
+                           (let ((inhibit-read-only t))
+                             (nnheader-replace-header "Score" new-score)))
+                         (nnreddit-rpc-call nil nil "vote" article-name vote))
+                (message "Open the article before voting."))))))
+    (error "No current article")))
 
 (defsubst nnreddit--gate (&optional group)
   "Apply our minor modes only when the following conditions hold for GROUP."
@@ -549,13 +545,13 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                              end
                              finally return (or cand 0))))
                  (updated-seen-index (- num-headers
-                                        (nnreddit-aif
+                                        (aif
                                             (seq-position (reverse headers) nil
                                                           (lambda (plst _e)
                                                             (not (plist-get plst :title))))
                                             it -1)))
-                 (updated-seen-id (nnreddit-aif (nth (1- updated-seen-index) headers)
-                                      (plist-get it :id) ""))
+                 (updated-seen-id (aif (nth (1- updated-seen-index) headers)
+                                      (plist-get it :id) nil))
                  (delta (if newsrc-seen-index
                             (max 0 (- newsrc-seen-index newsrc-seen-index-now))
                           0))
@@ -579,12 +575,13 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
              info
              (append (assq-delete-all 'seen (gnus-info-marks info))
                      (list `(seen (1 . ,num-headers)))))
-            (while (assq 'last-seen params)
-              (gnus-alist-pull 'last-seen params))
-            (gnus-info-set-params
-             info
-             (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
-             t)
+            (when updated-seen-id
+              (while (assq 'last-seen params)
+                (gnus-alist-pull 'last-seen params))
+              (gnus-info-set-params
+               info
+               (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
+               t))
             (gnus-set-info gnus-newsgroup-name info)
             (gnus-message 7 "nnreddit-request-group: new info=%s" info)))))
     t))
@@ -633,12 +630,51 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
      0 0 nil
      (append `((X-Reddit-Name . ,(plist-get header :name)))
              `((X-Reddit-ID . ,(plist-get header :id)))
-             (nnreddit-aif (plist-get header :permalink)
+             (aif (plist-get header :permalink)
                            `((X-Reddit-Permalink . ,it)))
              (and (integerp score)
                   `((X-Reddit-Score . ,(number-to-string score))))
              (and (integerp num-comments)
                   `((X-Reddit-Comments . ,(number-to-string num-comments))))))))
+
+(cl-defun nnreddit--request-error (caller
+                                   &key response symbol-status error-thrown
+                                   &allow-other-keys
+                                   &aux (response-status
+                                         (request-response-status-code response)))
+  "Refer to CALLER when reporting a submit error."
+  (gnus-message 3 "%s %s: http status %s, %s" caller symbol-status response-status
+                (error-message-string error-thrown)))
+
+(cl-defun nnreddit--request (caller
+                             url
+                             &rest attributes &key parser (backend 'url-retrieve)
+                             &allow-other-keys)
+  "Prefix errors with CALLER when executing synchronous request to URL."
+  (unless parser
+    (setq attributes (nconc attributes (list :parser #'buffer-string))))
+  (setq attributes (cl-loop for (k v) on attributes by (function cddr)
+                            unless (eq k :backend)
+                            collect k and collect v))
+  (let ((request-backend backend))
+    (apply #'request url
+           :sync t
+           :error (apply-partially #'nnreddit--request-error caller)
+           attributes)))
+
+(cl-defun nnreddit--content-handler
+    (&rest args &key data response &allow-other-keys
+     &aux (header (request-response--raw-header response)))
+  "For HEADER that is image, wrap DATA in data URI."
+  (let* ((_ (string-match "Content-Type:\\s-*\\([[:graph:]]+\\)" header))
+         (content-type (match-string 1 header)))
+    (cl-destructuring-bind (type _subtype) (split-string content-type "/")
+      (cond ((string= type "image")
+             (format "<img src=\"data:%s;base64,%s\" />"
+                     content-type
+                     (base64-encode-string (encode-coding-string data 'binary) t)))
+            ((string= type "text") data)
+            (t (error "nnreddit--content-handler: passing on %s" content-type))))))
 
 (deffoo nnreddit-request-article (article-number &optional group server buffer)
   (nnreddit--normalize-server)
@@ -664,13 +700,24 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
              "")
            "Score: " score "\n"
            "\n")
-          (nnreddit-and-let*
-           ((parent-name (plist-get header :parent_id)) ;; parent_id is full
-            (parent-author (or (nnreddit--gethash parent-name nnreddit-authors-hashtb)
-                               "Someone"))
-            (parent-body (nnreddit--get-body parent-name group server)))
-           (insert (nnreddit--citation-wrap parent-author parent-body)))
-          (insert (nnreddit--br-tagify body))
+          (-when-let*
+              ((parent-name (plist-get header :parent_id)) ;; parent_id is full
+               (parent-author (or (nnreddit--gethash parent-name nnreddit-authors-hashtb)
+                                  "Someone"))
+               (parent-body (nnreddit--get-body parent-name group server)))
+            (insert (nnreddit--citation-wrap parent-author parent-body)))
+          (aif (and nnreddit-render-submission
+                    (eq (plist-get header :is_self) :json-false)
+                    (plist-get header :url))
+              (condition-case err
+                  (nnreddit--request
+                   "nnreddit-request-article" it
+                   :success (lambda (&rest args)
+                              (insert (apply #'nnreddit--content-handler args))))
+                (error (gnus-message 5 "nnreddit-request-article: %s %s"
+                                     it (error-message-string err))
+                       (insert (nnreddit--br-tagify body))))
+            (insert (nnreddit--br-tagify body)))
           (cons group article-number))))))
 
 (deffoo nnreddit-retrieve-headers (article-numbers &optional group server _fetch-old)
@@ -695,7 +742,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                                         (if (< i (length v)) (aref v i)))
                                       lvp indices)))
              (list (cdr earliest)
-                   (nnreddit-aif next-earliest
+                   (aif next-earliest
                        (plist-get (car it) :created_utc))))
       (cond ((null earliest)
              (setq earliest plst-idx))
@@ -775,7 +822,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   (let ((string (buffer-substring beg end))
         (magic "::user::"))
     (when (string-prefix-p magic string)
-      (message "%s: %s" server (substring string (length magic))))))
+      (message "%s: %s." server (substring string (length magic))))))
 
 (defsubst nnreddit--install-failed ()
   "If we can't install the virtualenv then all bets are off."
@@ -920,19 +967,137 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
              (nnreddit-rpc-call server kwargs "submit" group title)))
     ret))
 
-(add-to-list 'gnus-parameters `("^nnreddit"
-                                (gnus-summary-make-false-root 'adopt)
-                                (gnus-cite-hide-absolute 5)
-                                (gnus-cite-hide-percentage 0)
-                                (gnus-cited-lines-visible '(2 . 2))
-                                (gnus-auto-extend-newsgroup nil)
-                                (gnus-add-timestamp-to-message t)
-                                (gnus-header-button-alist
-                                 (quote ,(cons '("^\\(Message-I[Dd]\\|^In-Reply-To\\):" "<[^<>]+>"
-                                           0 (>= gnus-button-message-level 0)
-                                           gnus-button-message-id 0)
-                                         (cdr gnus-header-button-alist))))
-                                (gnus-visible-headers ,(concat gnus-visible-headers "\\|^Score:"))))
+(defun nnreddit--browse-root (&rest _args)
+  "What happens when I click on Subject."
+  (-when-let* ((article-number (cdr gnus-article-current))
+               (group (gnus-group-real-name (car gnus-article-current)))
+               (header (nnreddit--get-header article-number group))
+               (permalink (plist-get header :permalink)))
+    (cl-loop for name in (nnreddit-refs-for (plist-get header :name))
+             for header1 = (nnreddit-find-header
+                            group (nnreddit-hack-name-to-id name))
+             for permalink1 = (plist-get header1 :permalink)
+             until permalink1
+             finally (browse-url (format "https://www.reddit.com%s"
+                                         (or permalink1 permalink ""))))))
+
+(defun nnreddit--header-button-alist ()
+  "Construct a buffer-local `gnus-header-button-alist' for nnreddit."
+  (let* ((result (copy-alist gnus-header-button-alist))
+         (references-value (assoc-default "References" result
+                                          (lambda (x y) (string-match-p y x))))
+         (references-key (car (rassq references-value result))))
+    (setq result (cl-delete "^Subject:" result :test (lambda (x y) (cl-search x (car y)))))
+    (setq result (cl-delete references-key result :test (lambda (x y) (cl-search x (car y)))))
+    (push (append '("^\\(Message-I[Dd]\\|^In-Reply-To\\):") references-value) result)
+    (push '("^Subject:" ": *\\(.+\\)$" 1 (>= gnus-button-browse-level 0)
+            nnreddit--browse-root 1)
+          result)
+    result))
+
+(defsubst nnreddit--fallback-link ()
+  "Cannot render submission."
+  (let* ((group (gnus-group-real-name (car gnus-article-current)))
+         (header (nnreddit--get-header (cdr gnus-article-current) group))
+         (body (nnreddit--get-body (plist-get header :name) group)))
+    (with-current-buffer gnus-original-article-buffer
+      (article-goto-body)
+      (delete-region (point) (point-max))
+      (when body
+        (insert (nnreddit--br-tagify body))))))
+
+(defalias 'nnreddit--display-article
+  (lambda (article &optional all-headers _header)
+    (condition-case err
+        (gnus-article-prepare article all-headers)
+      (error
+       (if nnreddit-render-submission
+           (progn
+             (gnus-message 7 "nnreddit--display-article: '%s' (falling back...)"
+                           (error-message-string err))
+             (nnreddit--fallback-link)
+             (gnus-article-prepare article all-headers))
+         (error (error-message-string err))))))
+  "In case of shr failures, dump original link.")
+
+(defsubst nnreddit--dense-time (time)
+  "Convert TIME to a floating point number.
+
+Written by John Wiegley (https://github.com/jwiegley/dot-emacs)."
+  (+ (* (car time) 65536.0)
+     (cadr time)
+     (/ (or (car (cdr (cdr time))) 0) 1000000.0)))
+
+(defalias 'nnreddit--format-time-elapsed
+  (lambda (header)
+    (condition-case nil
+        (let ((date (mail-header-date header)))
+          (if (> (length date) 0)
+              (let*
+                  ((then (nnreddit--dense-time
+                          (apply 'encode-time (parse-time-string date))))
+                   (now (nnreddit--dense-time (current-time)))
+                   (diff (- now then))
+                   (str
+                    (cond
+                     ((>= diff (* 86400.0 7.0 52.0))
+                      (if (>= diff (* 86400.0 7.0 52.0 10.0))
+                          (format "%3dY" (floor (/ diff (* 86400.0 7.0 52.0))))
+                        (format "%3.1fY" (/ diff (* 86400.0 7.0 52.0)))))
+                     ((>= diff (* 86400.0 30.0))
+                      (if (>= diff (* 86400.0 30.0 10.0))
+                          (format "%3dM" (floor (/ diff (* 86400.0 30.0))))
+                        (format "%3.1fM" (/ diff (* 86400.0 30.0)))))
+                     ((>= diff (* 86400.0 7.0))
+                      (if (>= diff (* 86400.0 7.0 10.0))
+                          (format "%3dw" (floor (/ diff (* 86400.0 7.0))))
+                        (format "%3.1fw" (/ diff (* 86400.0 7.0)))))
+                     ((>= diff 86400.0)
+                      (if (>= diff (* 86400.0 10.0))
+                          (format "%3dd" (floor (/ diff 86400.0)))
+                        (format "%3.1fd" (/ diff 86400.0))))
+                     ((>= diff 3600.0)
+                      (if (>= diff (* 3600.0 10.0))
+                          (format "%3dh" (floor (/ diff 3600.0)))
+                        (format "%3.1fh" (/ diff 3600.0))))
+                     ((>= diff 60.0)
+                      (if (>= diff (* 60.0 10.0))
+                          (format "%3dm" (floor (/ diff 60.0)))
+                        (format "%3.1fm" (/ diff 60.0))))
+                     (t
+                      (format "%3ds" (floor diff)))))
+                   (stripped
+                    (replace-regexp-in-string "\\.0" "" str)))
+                (concat (cond
+                         ((= 2 (length stripped)) "  ")
+                         ((= 3 (length stripped)) " ")
+                         (t ""))
+                        stripped))))
+      ;; print some spaces and pretend nothing happened.
+      (error "    ")))
+  "Return time elapsed since HEADER was sent.
+
+Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
+
+;; Evade package-lint!
+(fset 'gnus-user-format-function-S
+      (symbol-function 'nnreddit--format-time-elapsed))
+
+(add-to-list
+ 'gnus-parameters
+ `("^nnreddit"
+   (gnus-summary-make-false-root 'adopt)
+   (gnus-cite-hide-absolute 5)
+   (gnus-cite-hide-percentage 0)
+   (gnus-cited-lines-visible '(2 . 2))
+   (gnus-auto-extend-newsgroup nil)
+   (gnus-add-timestamp-to-message t)
+   (gnus-summary-line-format "%3t%U%R%uS %I%(%*%-10,10f  %s%)\n")
+   (gnus-summary-display-article-function
+    (quote ,(symbol-function 'nnreddit--display-article)))
+   (gnus-header-button-alist
+    (quote ,(nnreddit--header-button-alist)))
+   (gnus-visible-headers ,(concat gnus-visible-headers "\\|^Score:"))))
 
 (nnoo-define-skeleton nnreddit)
 
@@ -967,7 +1132,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
 (let* ((prompt-loose
         (lambda (f &rest args)
           (cond ((nnreddit--gate)
-                 (or (nnreddit-and-let*
+                 (or (-when-let*
                       ((article-number (gnus-summary-article-number))
                        (header (nnreddit--get-header article-number))
                        (root-name (car (nnreddit-refs-for (plist-get header :name))))
@@ -978,7 +1143,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
                                            (nnreddit-hack-name-to-id root-name)))))
                        (reply-root (read-char-choice
                                     "Reply loose thread [m]essage or [r]oot: " '(?m ?r)))
-                       ((eq reply-root ?r)))
+                       (q-root (eq reply-root ?r)))
                       (let* ((link-header (apply-partially #'message-add-header
                                                            "Reply-Root: yes"))
                              (add-link-header (apply-partially #'add-hook
@@ -1110,10 +1275,31 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
        (error (remove-function (symbol-function 'message-fetch-field) concat-func)
               (error (error-message-string err)))))))
 
+(add-function
+ :around (symbol-function 'url-http-generic-filter)
+ (lambda (f &rest args)
+   (cond ((nnreddit--gate)
+          (condition-case err
+              (apply f args)
+            (error (gnus-message 7 "url-http-generic-filter: %s"
+                                 (error-message-string err)))))
+         (t (apply f args)))))
+
+;; the let'ing to nil of `gnus-summary-display-article-function'
+;; in `gnus-summary-select-article' dates back to antiquity.
+(add-function
+ :around (symbol-function 'gnus-summary-display-article)
+ (lambda (f &rest args)
+   (cond ((nnreddit--gate)
+          (let ((gnus-summary-display-article-function
+                 (symbol-function 'nnreddit--display-article)))
+            (apply f args)))
+         (t (apply f args)))))
+
 ;; disallow caching as the article numbering is wont to change
 ;; after PRAW restarts!
 (setq gnus-uncacheable-groups
-      (nnreddit-aif gnus-uncacheable-groups
+      (aif gnus-uncacheable-groups
           (format "\\(%s\\)\\|\\(^nnreddit\\)" it)
         "^nnreddit"))
 

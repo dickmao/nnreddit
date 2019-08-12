@@ -15,6 +15,8 @@ A Gnus backend for Reddit.
    :target: http://melpa-stable.milkbox.net/#/ein
    :alt: MELPA stable version
 
+.. image:: screenshot.png
+
 Install
 =======
 As described in `Getting started`_, ensure melpa's whereabouts in ``init.el`` or ``.emacs``::
@@ -54,7 +56,7 @@ Create a post via ``a``.
 
 Reply to articles with ``f`` or ``r``.  Include original with ``F``.
 
-Vote articles by first entering the Article buffer, then ``R -`` (down), ``R =`` (up), or ``R 0`` (retract).
+Vote articles via ``R -`` (down), ``R =`` (up), or ``R 0`` (retract).
 
 From the ``*Group*`` buffer, press ``g`` to refresh all subreddits.  ``M-g`` on a particular subreddit to refresh individually.
 

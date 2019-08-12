@@ -43,9 +43,15 @@
 (When "^I dump buffer"
       (lambda () (message "%s" (buffer-string))))
 
+(Then "^protected see message \"\\(.+\\)\"$"
+  (lambda (message)
+    (let ((msg "Expected '%s' to be included in the list of printed messages, but was not."))
+      (setq message (s-replace "\\\"" "\"" message))
+      (cl-assert (-contains? (-map (lambda (s) (if (stringp s) (s-trim s) "")) ecukes-message-log) message) nil msg message))))
+
 (When "^gnus \\(try \\)?start\\(\\)$"
       (lambda (demote _workaround)
-        (nnreddit-aif (get-buffer gnus-group-buffer)
+        (aif (get-buffer gnus-group-buffer)
             (switch-to-buffer it)
           (if-demote demote
             (When "I call \"gnus\"")
@@ -53,7 +59,7 @@
 
 (When "^gnus stop$"
       (lambda ()
-        (nnreddit-aif (get-buffer gnus-group-buffer)
+        (aif (get-buffer gnus-group-buffer)
             (progn (switch-to-buffer it)
                    (And "I press \"q\"")
                    (switch-to-buffer "*scratch*")))))
