@@ -5,5 +5,6 @@
     (virtualenvwrapper "20190223.1919")
     (json-rpc "20180104.1528")
     (dash "20190401")
-    (anaphora "20180618"))
+    (anaphora "20180618")
+    (request "20190730"))
   :url "https://github.com/dickmao/nnreddit")

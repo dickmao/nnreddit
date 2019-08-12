@@ -55,6 +55,7 @@
 (require 'cl-lib)
 (require 'virtualenvwrapper)
 (require 'anaphora)
+(require 'request)
 
 (nnoo-declare nnreddit)
 
@@ -635,6 +636,31 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
              (and (integerp num-comments)
                   `((X-Reddit-Comments . ,(number-to-string num-comments))))))))
 
+(cl-defun nnreddit--request-error (caller
+                                   &key response symbol-status error-thrown
+                                   &allow-other-keys
+                                   &aux (response-status
+                                         (request-response-status-code response)))
+  "Refer to CALLER when reporting a submit error."
+  (gnus-message 3 "%s %s: http status %s, %s" caller symbol-status response-status
+                (error-message-string error-thrown)))
+
+(cl-defun nnreddit--request (caller
+                             url
+                             &rest attributes &key parser (backend 'url-retrieve)
+                             &allow-other-keys)
+  "Prefix errors with CALLER when executing synchronous request to URL."
+  (unless parser
+    (setq attributes (nconc attributes (list :parser #'buffer-string))))
+  (setq attributes (cl-loop for (k v) on attributes by (function cddr)
+                            unless (eq k :backend)
+                            collect k and collect v))
+  (let ((request-backend backend))
+    (apply #'request url
+           :sync t
+           :error (apply-partially #'nnreddit--request-error caller)
+           attributes)))
+
 (deffoo nnreddit-request-article (article-number &optional group server buffer)
   (nnreddit--normalize-server)
   (nnreddit--with-group group
@@ -666,13 +692,13 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                (parent-body (nnreddit--get-body parent-name group server)))
             (insert (nnreddit--citation-wrap parent-author parent-body)))
           (aif (and nnreddit-render-story
-                    (not (plist-get header :is_self))
+                    (eq (plist-get header :is_self) :json-false)
                     (plist-get header :url))
               (condition-case err
-                  (if-let ((retrieved (url-retrieve-synchronously it)))
-                      (with-current-buffer retrieved
-                        (insert (buffer-string)))
-                    (error "no associated data"))
+                  (nnreddit--request "nnreddit-request-article" it
+                                     :success (cl-function
+                                               (lambda (&key data &allow-other-keys)
+                                                 (insert data))))
                 (error (gnus-message 5 "nnreddit-request-article: %s %s"
                                      it (error-message-string err))
                        (insert (nnreddit--br-tagify body))))
