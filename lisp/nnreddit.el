@@ -672,7 +672,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
       (cond ((string= type "image")
              (format "<img src=\"data:%s;base64,%s\" />"
                      content-type
-                     (base64-encode-string (string-as-unibyte data) t)))
+                     (base64-encode-string (encode-coding-string data 'binary) t)))
             ((string= type "text") data)
             (t (error "nnreddit--content-handler: passing on %s" content-type))))))
 
@@ -1283,6 +1283,17 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
               (apply f args)
             (error (gnus-message 7 "url-http-generic-filter: %s"
                                  (error-message-string err)))))
+         (t (apply f args)))))
+
+;; the let'ing to nil of `gnus-summary-display-article-function'
+;; in `gnus-summary-select-article' dates back to antiquity.
+(add-function
+ :around (symbol-function 'gnus-summary-display-article)
+ (lambda (f &rest args)
+   (cond ((nnreddit--gate)
+          (let ((gnus-summary-display-article-function
+                 (symbol-function 'nnreddit--display-article)))
+            (apply f args)))
          (t (apply f args)))))
 
 ;; disallow caching as the article numbering is wont to change
