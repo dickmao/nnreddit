@@ -15,6 +15,8 @@ A Gnus backend for Reddit.
    :target: http://melpa-stable.milkbox.net/#/ein
    :alt: MELPA stable version
 
+.. image:: screenshot.png
+
 Install
 =======
 As described in `Getting started`_, ensure melpa's whereabouts in ``init.el`` or ``.emacs``::
