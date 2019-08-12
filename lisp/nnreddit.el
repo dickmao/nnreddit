@@ -59,7 +59,7 @@
 
 (nnoo-declare nnreddit)
 
-(defcustom nnreddit-render-story t
+(defcustom nnreddit-render-submission t
   "If non-nil, follow link upon `gnus-summary-select-article'.
 
 Otherwise, just display link."
@@ -661,6 +661,20 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
            :error (apply-partially #'nnreddit--request-error caller)
            attributes)))
 
+(cl-defun nnreddit--content-handler
+    (&rest args &key data response &allow-other-keys
+     &aux (header (request-response--raw-header response)))
+  "For HEADER that is image, wrap DATA in data URI."
+  (let* ((_ (string-match "Content-Type:\\s-*\\([[:graph:]]+\\)" header))
+         (content-type (match-string 1 header)))
+    (cl-destructuring-bind (type _subtype) (split-string content-type "/")
+      (cond ((string= type "image")
+             (format "<img src=\"data:%s;base64,%s\" />"
+                     content-type
+                     (base64-encode-string (string-as-unibyte data) t)))
+            ((string= type "text") data)
+            (t (error "nnreddit--content-handler: passing on %s" content-type))))))
+
 (deffoo nnreddit-request-article (article-number &optional group server buffer)
   (nnreddit--normalize-server)
   (nnreddit--with-group group
@@ -691,14 +705,14 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                                   "Someone"))
                (parent-body (nnreddit--get-body parent-name group server)))
             (insert (nnreddit--citation-wrap parent-author parent-body)))
-          (aif (and nnreddit-render-story
+          (aif (and nnreddit-render-submission
                     (eq (plist-get header :is_self) :json-false)
                     (plist-get header :url))
               (condition-case err
-                  (nnreddit--request "nnreddit-request-article" it
-                                     :success (cl-function
-                                               (lambda (&key data &allow-other-keys)
-                                                 (insert data))))
+                  (nnreddit--request
+                   "nnreddit-request-article" it
+                   :success (lambda (&rest args)
+                              (insert (apply #'nnreddit--content-handler args))))
                 (error (gnus-message 5 "nnreddit-request-article: %s %s"
                                      it (error-message-string err))
                        (insert (nnreddit--br-tagify body))))
@@ -952,8 +966,36 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
              (nnreddit-rpc-call server kwargs "submit" group title)))
     ret))
 
+(defun nnreddit--browse-root (&rest _args)
+  "What happens when I click on Subject."
+  (-when-let* ((article-number (cdr gnus-article-current))
+               (group (gnus-group-real-name (car gnus-article-current)))
+               (header (nnreddit--get-header article-number group))
+               (permalink (plist-get header :permalink)))
+    (cl-loop for name in (nnreddit-refs-for (plist-get header :name))
+             for header1 = (nnreddit-find-header
+                            group (nnreddit-hack-name-to-id name))
+             for permalink1 = (plist-get header1 :permalink)
+             until permalink1
+             finally (browse-url (format "https://www.reddit.com%s"
+                                         (or permalink1 permalink ""))))))
+
+(defun nnreddit--header-button-alist ()
+  "Construct a buffer-local `gnus-header-button-alist' for nnreddit."
+  (let* ((result (copy-alist gnus-header-button-alist))
+         (references-value (assoc-default "References" result
+                                          (lambda (x y) (string-match-p y x))))
+         (references-key (car (rassq references-value result))))
+    (setq result (cl-delete "^Subject:" result :test (lambda (x y) (cl-search x (car y)))))
+    (setq result (cl-delete references-key result :test (lambda (x y) (cl-search x (car y)))))
+    (push (append '("^\\(Message-I[Dd]\\|^In-Reply-To\\):") references-value) result)
+    (push '("^Subject:" ": *\\(.+\\)$" 1 (>= gnus-button-browse-level 0)
+            nnreddit--browse-root 1)
+          result)
+    result))
+
 (defsubst nnreddit--fallback-link ()
-  "Cannot render story."
+  "Cannot render submission."
   (let* ((group (gnus-group-real-name (car gnus-article-current)))
          (header (nnreddit--get-header (cdr gnus-article-current) group))
          (body (nnreddit--get-body (plist-get header :name) group)))
@@ -968,7 +1010,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
     (condition-case err
         (gnus-article-prepare article all-headers)
       (error
-       (if nnreddit-render-story
+       (if nnreddit-render-submission
            (progn
              (gnus-message 7 "nnreddit--display-article: '%s' (falling back...)"
                            (error-message-string err))
@@ -1053,10 +1095,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
    (gnus-summary-display-article-function
     (quote ,(symbol-function 'nnreddit--display-article)))
    (gnus-header-button-alist
-    (quote ,(cons '("^\\(Message-I[Dd]\\|^In-Reply-To\\):" "<[^<>]+>"
-                    0 (>= gnus-button-message-level 0)
-                    gnus-button-message-id 0)
-                  (cdr gnus-header-button-alist))))
+    (quote ,(nnreddit--header-button-alist)))
    (gnus-visible-headers ,(concat gnus-visible-headers "\\|^Score:"))))
 
 (nnoo-define-skeleton nnreddit)
