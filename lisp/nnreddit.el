@@ -418,7 +418,7 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
   (declare (debug (form &rest form))
            (indent 1))
   `(let* ((group (or ,group (gnus-group-real-name gnus-newsgroup-name)))
-          (gnus-newsgroup-name (gnus-group-prefixed-name group "nnreddit")))
+          (gnus-newsgroup-name (gnus-group-prefixed-name group "nnreddit:")))
      ,@body))
 
 (defun nnreddit--get-header (article-number &optional group)
