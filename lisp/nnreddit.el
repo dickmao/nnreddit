@@ -502,7 +502,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
     (let* ((info
             (or info
                 (gnus-get-info gnus-newsgroup-name)
-                (list group
+                (list gnus-newsgroup-name
                       gnus-level-default-subscribed
                       nil nil
                       (gnus-method-simplify (gnus-group-method gnus-newsgroup-name)))))
