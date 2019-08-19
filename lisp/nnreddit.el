@@ -56,6 +56,7 @@
 (require 'virtualenvwrapper)
 (require 'anaphora)
 (require 'request)
+(require 'url-http)
 
 (nnoo-declare nnreddit)
 
