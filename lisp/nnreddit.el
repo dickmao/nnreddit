@@ -57,6 +57,7 @@
 (require 'anaphora)
 (require 'request)
 (require 'url-http)
+(require 'gnus-topic)
 
 (nnoo-declare nnreddit)
 
@@ -418,7 +419,7 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
   (declare (debug (form &rest form))
            (indent 1))
   `(let* ((group (or ,group (gnus-group-real-name gnus-newsgroup-name)))
-          (gnus-newsgroup-name (gnus-group-prefixed-name group "nnreddit:")))
+          (gnus-newsgroup-name (gnus-group-full-name group "nnreddit:")))
      ,@body))
 
 (defun nnreddit--get-header (article-number &optional group)
@@ -483,7 +484,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
   (nnreddit--normalize-server)
   (nnreddit--with-group group
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s..." group)
-    (gnus-activate-group (gnus-group-full-name group '("nnreddit" (or server ""))) t)
+    (gnus-activate-group gnus-newsgroup-name t)
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
     t))
 
@@ -1114,8 +1115,9 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
 
 (defun nnreddit-group-mode-activate ()
   "Augment the `gnus-group-mode-map' unconditionally."
-  (if (boundp 'gnus-group-change-level-functions)
-      (add-hook 'gnus-group-change-level-functions 'nnreddit-update-subscription nil 'local)
+  (if gnus-group-change-level-function
+      (add-function :after gnus-group-change-level-function
+                    #'nnreddit-update-subscription)
     (custom-set-variables
      '(gnus-group-change-level-function (quote nnreddit-update-subscription))))
   (nnreddit-group-mode))
@@ -1296,6 +1298,13 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                  (symbol-function 'nnreddit--display-article)))
             (apply f args)))
          (t (apply f args)))))
+
+;; Lars rejected my change for vectorizing `gnus-group-change-level-functions'
+(add-function
+ :after (symbol-function 'gnus-topic-change-level)
+ (lambda (&rest args)
+   ;; nnreddit-update-subscription calls nnreddit--gate
+   (apply #'nnreddit-update-subscription args)))
 
 ;; disallow caching as the article numbering is wont to change
 ;; after PRAW restarts!
