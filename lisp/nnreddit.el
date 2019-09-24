@@ -1115,8 +1115,9 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
 
 (defun nnreddit-group-mode-activate ()
   "Augment the `gnus-group-mode-map' unconditionally."
-  (if (boundp 'gnus-group-change-level-functions)
-      (add-hook 'gnus-group-change-level-functions 'nnreddit-update-subscription nil 'local)
+  (if gnus-group-change-level-function
+      (add-function :after gnus-group-change-level-function
+                    #'nnreddit-update-subscription)
     (custom-set-variables
      '(gnus-group-change-level-function (quote nnreddit-update-subscription))))
   (nnreddit-group-mode))
@@ -1297,6 +1298,13 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                  (symbol-function 'nnreddit--display-article)))
             (apply f args)))
          (t (apply f args)))))
+
+;; Lars rejected my change for vectorizing `gnus-group-change-level-functions'
+(add-function
+ :after (symbol-function 'gnus-topic-change-level)
+ (lambda (&rest args)
+   ;; nnreddit-update-subscription calls nnreddit--gate
+   (apply #'nnreddit-update-subscription args)))
 
 ;; disallow caching as the article numbering is wont to change
 ;; after PRAW restarts!
