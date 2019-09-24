@@ -57,6 +57,7 @@
 (require 'anaphora)
 (require 'request)
 (require 'url-http)
+(require 'gnus-topic)
 
 (nnoo-declare nnreddit)
 
