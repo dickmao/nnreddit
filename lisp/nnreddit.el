@@ -372,8 +372,8 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 (defun nnreddit-update-subscription (group level oldlevel &optional _previous)
   "Nnreddit `gnus-group-change-level' callback of GROUP to LEVEL from OLDLEVEL."
   (when (nnreddit--gate group)
-    (let ((old-subbed-p (<= oldlevel gnus-level-default-subscribed))
-          (new-subbed-p (<= level gnus-level-default-subscribed)))
+    (let ((old-subbed-p (<= oldlevel gnus-level-subscribed))
+          (new-subbed-p (<= level gnus-level-subscribed)))
       (unless (eq old-subbed-p new-subbed-p)
         ;; afaict, praw post() doesn't return status
         (if new-subbed-p
@@ -786,7 +786,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
           (newsrc (cl-mapcan (lambda (info)
                                (when (and (equal "nnreddit:" (gnus-info-method info))
                                           (<= (gnus-info-level info)
-                                              gnus-level-default-subscribed))
+                                              gnus-level-subscribed))
                                  (list (gnus-info-group info))))
                              gnus-newsrc-alist)))
       (mapc (lambda (realname)
@@ -795,7 +795,8 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                 (gnus-message 5 "nnreddit-request-list: scanning %s..." realname)
                 (gnus-activate-group group t)
                 (gnus-message 5 "nnreddit-request-list: scanning %s...done" realname)
-                (gnus-group-unsubscribe-group group gnus-level-default-subscribed t)
+                (when (> (gnus-group-level group) gnus-level-subscribed)
+                  (gnus-group-unsubscribe-group group gnus-level-default-subscribed t))
                 (setq newsrc (cl-remove group newsrc :test #'string=))))
             groups)
       (mapc (lambda (fullname)
