@@ -6,7 +6,7 @@
 ;; Version: 0
 ;; Keywords: news
 ;; URL: https://github.com/dickmao/nnreddit
-;; Package-Requires: ((emacs "25"))
+;; Package-Requires: ((emacs "25.1"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -226,25 +226,19 @@ Do not set this to \"localhost\" as a numeric IP is required for the oauth hands
 "
   :keymap gnus-group-mode-map)
 
-(cl-defun nnreddit-novote (&key deprecated)
+(cl-defun nnreddit-novote ()
   "Retract vote."
   (interactive)
-  (when deprecated
-    (message "Deprecated.  Use V-V-0 instead."))
   (nnreddit-vote-current-article 0))
 
-(cl-defun nnreddit-downvote (&key deprecated)
+(cl-defun nnreddit-downvote ()
   "Downvote the article in current buffer."
   (interactive)
-  (when deprecated
-    (message "Deprecated.  Use V-V-- instead."))
   (nnreddit-vote-current-article -1))
 
-(cl-defun nnreddit-upvote (&key deprecated)
+(cl-defun nnreddit-upvote ()
   "Upvote the article in current buffer."
   (interactive)
-  (when deprecated
-    (message "Deprecated.  Use V-V-= or V-V-+ instead."))
   (nnreddit-vote-current-article 1))
 
 (defvar nnreddit--seq-map-indexed
@@ -644,15 +638,20 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                                    &allow-other-keys
                                    &aux (response-status
                                          (request-response-status-code response)))
-  "Refer to CALLER when reporting a submit error."
-  (gnus-message 3 "%s %s: http status %s, %s" caller symbol-status response-status
+  "Refer to CALLER when reporting a submit error.
+
+Also report http code of RESPONSE, which is distinct from SYMBOL-STATUS, and ERROR-THROWN.  The http code is stored in RESPONSE-STATUS."
+  (gnus-message 3 "%s %s: http status %s, %s"
+                caller symbol-status response-status
                 (error-message-string error-thrown)))
 
 (cl-defun nnreddit--request (caller
                              url
                              &rest attributes &key parser (backend 'url-retrieve)
                              &allow-other-keys)
-  "Prefix errors with CALLER when executing synchronous request to URL."
+  "Prefix errors with CALLER when executing synchronous request to URL.
+
+Request shall contain ATTRIBUTES, one of which is PARSER of the response, if provided (shall default to verbatim dump of response, if not).  BACKEND can be curl (defaults to `url-retrieve')."
   (unless parser
     (setq attributes (nconc attributes (list :parser #'buffer-string))))
   (setq attributes (cl-loop for (k v) on attributes by (function cddr)
@@ -665,9 +664,9 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
            attributes)))
 
 (cl-defun nnreddit--content-handler
-    (&rest args &key data response &allow-other-keys
+    (&key data response &allow-other-keys
      &aux (header (request-response--raw-header response)))
-  "For HEADER that is image, wrap DATA in data URI."
+  "Wrap DATA in uri if RESPONSE has HEADER that is image."
   (let* ((_ (string-match "Content-Type:\\s-*\\([[:graph:]]+\\)" header))
          (content-type (match-string 1 header)))
     (cl-destructuring-bind (type _subtype) (split-string content-type "/")
