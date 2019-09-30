@@ -11,11 +11,10 @@ INIT_PACKAGE_EL="(progn
   (push '(\"melpa\" . \"http://melpa.org/packages/\") package-archives)
   (package-initialize))"
 
-# Refresh package archives, because the test suite needs to see at least
-# package-lint and cl-lib.
 "$EMACS" -Q -batch \
          --eval "$INIT_PACKAGE_EL" \
-         --eval "(unless (package-installed-p (quote package-lint)) (package-refresh-contents) (package-install (quote package-lint)))"
+         --eval "(unless (package-installed-p (quote quelpa)) (package-refresh-contents) (package-install (quote quelpa)))" \
+         --eval "(unless (package-installed-p (quote package-lint)) (quelpa (quote (package-lint :fetcher github :repo \"dickmao/package-lint\" :branch \"datetime\"))))"
 
 # Byte compile, failing on byte compiler errors, or on warnings unless ignored
 if [ -n "${EMACS_LINT_IGNORE+x}" ]; then
