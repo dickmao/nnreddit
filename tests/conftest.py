@@ -70,7 +70,7 @@ def vcr(request):
 
     def scrub(tokens, replacement=''):
         def before_record_response(response):
-            dikt = json.loads(response['body']['string'])
+            dikt = json.loads(response['body']['string'].decode('utf-8'))
             for token in tokens:
                 dikt[token] = replacement
             response['body']['string'] = json.dumps(dikt)
