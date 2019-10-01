@@ -7,6 +7,8 @@ addons:
     packages:
     - gnutls-bin
     - sharutils
+    - gnupg2
+    - dirmngr
 
 cache:
   directories:
