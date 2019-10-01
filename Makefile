@@ -1,3 +1,5 @@
+EMACS ?= $(shell which emacs)
+PYTHON ?= python
 SRC=$(shell cask files)
 PKBUILD=2.3
 ELCFILES = $(SRC:.el=.elc)
@@ -15,7 +17,7 @@ endif
 
 .PHONY: autoloads
 autoloads:
-	emacs -Q --batch --eval "(package-initialize)" --eval "(package-generate-autoloads \"nnreddit\" \"./lisp\")"
+	$(EMACS) -Q --batch --eval "(package-initialize)" --eval "(package-generate-autoloads \"nnreddit\" \"./lisp\")"
 
 README.rst: README.in.rst lisp/nnreddit.el
 	sed "/CI VERSION/c"`grep -o 'emacs-[0-9][.0-9]*' .travis.yml | sort -n | head -1 | grep -o '[.0-9]*'` README.in.rst > README.rst0
@@ -29,7 +31,7 @@ README.rst: README.in.rst lisp/nnreddit.el
 clean:
 	cask clean-elc
 	pyclean nnreddit
-	python setup.py clean
+	$(PYTHON) setup.py clean
 	rm -f tests/log/*
 	rm -rf tests/test-install
 
@@ -51,7 +53,7 @@ test-install:
 	cd tests/test-install/package-build-$(PKBUILD) ; make -s loaddefs
 	mkdir -p tests/test-install/recipes
 	cd tests/test-install/recipes ; curl -sfLOk https://raw.githubusercontent.com/melpa/melpa/master/recipes/nnreddit || cp -f ../../../tools/recipe ./nnreddit
-	! ( emacs -Q --batch -L tests/test-install/package-build-$(PKBUILD) \
+	! ( $(EMACS) -Q --batch -L tests/test-install/package-build-$(PKBUILD) \
 	--eval "(require 'package-build)" \
 	--eval "(require 'subr-x)" \
 	--eval "(package-initialize)" \
@@ -71,23 +73,23 @@ test-install:
 
 .PHONY: test-venv
 test-venv: test-install
-	emacs -Q --batch --eval "(package-initialize)" \
+	$(EMACS) -Q --batch --eval "(package-initialize)" \
 	                 --eval "(custom-set-variables (quote (gnus-verbose 8)))" \
 	                 --eval "(require (quote nnreddit))" \
 	                 --eval "nnreddit-venv"
 
 .PHONY: test-unit
 test-unit:
-	cask exec ert-runner -L . -L tests tests/test*.el
+	PYTHON=$(PYTHON) cask exec ert-runner -L . -L tests tests/test*.el
 
 .PHONY: test
 test: test-compile test-unit test-int
 
 .PHONY: test-int
 test-int:
-	python -m pytest tests/test_oauth.py
+	$(PYTHON) -m pytest tests/test_oauth.py
 	rm -f tests/.newsrc.eld
-	cask exec ecukes --debug --reporter magnars
+	PYTHON=$(PYTHON) cask exec ecukes --debug --reporter magnars
 
 .PHONY: dist-clean
 dist-clean:
@@ -99,7 +101,7 @@ dist: dist-clean
 
 .PHONY: install
 install: test-compile dist
-	emacs -Q --batch --eval "(package-initialize)" \
+	$(EMACS) -Q --batch --eval "(package-initialize)" \
 	  --eval "(add-to-list 'package-archives '(\"melpa\" . \"http://melpa.org/packages/\"))" \
 	  --eval "(package-refresh-contents)" \
 	  --eval "(package-install-file (car (file-expand-wildcards \"dist/nnreddit*.tar\")))"

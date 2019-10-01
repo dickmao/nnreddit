@@ -7,6 +7,7 @@
 (custom-set-variables
  '(gnus-before-startup-hook (quote (toggle-debug-on-error)))
  '(nnreddit-venv nil)
+ `(nnreddit-python-command ,(or (getenv "PYTHON") "python"))
  '(auto-revert-verbose nil)
  '(auto-revert-stop-on-user-input nil)
  '(gnus-read-active-file nil)
