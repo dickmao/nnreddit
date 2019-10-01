@@ -1,6 +1,5 @@
 sudo: false
-language: python
-dist: trusty
+language: nix
 
 addons:
   apt:
@@ -8,6 +7,12 @@ addons:
     - gnutls-bin
     - sharutils
     - gnupg2
+    - python-minimal
+    - python-setuptools
+    - python-pip
+    - python3-minimal
+    - python3-pip
+    - python3-setuptools
     - dirmngr
 
 cache:
@@ -27,38 +32,36 @@ env:
 
 matrix:
   allow_failures:
-    - env: EVM_EMACS=emacs-git-snapshot-travis
+    - env: EMACS_CI=emacs-snapshot
   include:
     - os: linux
-      python: 2.7
-      env: EVM_EMACS=emacs-25.1-travis
+      env: EMACS_CI=emacs-25-1 PY=python PIP="${PY} -m pip install --user"
     - os: linux
-      python: 3.6
-      env: EVM_EMACS=emacs-26.2-travis
+      env: EMACS_CI=emacs-26-2 PY=python3 PIP="${PY} -m pip install --user"
     - os: osx
       language: generic
-      env: EVM_EMACS=emacs-25.2 TOXENV=py27
+      env: EVM_EMACS=emacs-25.2 PY=python PIP="pip install" TOXENV=py27
 
 install:
-  - cp -pr $HOME/.cask .
   - sh tools/install-virtualenv.sh
   - |
     if [ "x$TRAVIS_OS_NAME" = "xosx" ]; then
       eval "$(pyenv init -)"
       pyenv activate $TOXENV
     fi
-  - pip install pylint
-  - pip install -r requirements-dev.txt
+  - ${PIP} --upgrade pip
+  - ${PIP} wheel pylint pytest
+  - ${PIP} -r requirements-dev.txt
 
 before_script:
-  - sh tools/install-evm.sh
   - |
     if [ "x$TRAVIS_OS_NAME" = "xosx" ]; then
+      sh tools/install-evm.sh
       evm config path $HOME/.evm
+      evm install $EVM_EMACS --use --skip
     else
-      evm config path /tmp
+      bash <(curl https://raw.githubusercontent.com/purcell/nix-emacs-ci/master/travis-install)
     fi
-  - evm install $EVM_EMACS --use --skip
   - emacs --version
   - sh tools/install-cask.sh
 
