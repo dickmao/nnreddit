@@ -1,4 +1,5 @@
 EMACS ?= $(shell which emacs)
+PYTHON ?= python
 SRC=$(shell cask files)
 PKBUILD=2.3
 ELCFILES = $(SRC:.el=.elc)
@@ -30,7 +31,7 @@ README.rst: README.in.rst lisp/nnreddit.el
 clean:
 	cask clean-elc
 	pyclean nnreddit
-	python setup.py clean
+	$(PYTHON) setup.py clean
 	rm -f tests/log/*
 	rm -rf tests/test-install
 
@@ -86,7 +87,7 @@ test: test-compile test-unit test-int
 
 .PHONY: test-int
 test-int:
-	python -m pytest tests/test_oauth.py
+	$(PYTHON) -m pytest tests/test_oauth.py
 	rm -f tests/.newsrc.eld
 	cask exec ecukes --debug --reporter magnars
 
