@@ -80,7 +80,7 @@ test-venv: test-install
 
 .PHONY: test-unit
 test-unit:
-	cask exec ert-runner -L . -L tests tests/test*.el
+	PYTHON=$(PYTHON) cask exec ert-runner -L . -L tests tests/test*.el
 
 .PHONY: test
 test: test-compile test-unit test-int
@@ -89,7 +89,7 @@ test: test-compile test-unit test-int
 test-int:
 	$(PYTHON) -m pytest tests/test_oauth.py
 	rm -f tests/.newsrc.eld
-	cask exec ecukes --debug --reporter magnars
+	PYTHON=$(PYTHON) cask exec ecukes --debug --reporter magnars
 
 .PHONY: dist-clean
 dist-clean:
