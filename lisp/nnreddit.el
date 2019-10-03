@@ -770,7 +770,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                  do (push plst result))))
     (nreverse result)))
 
-(deffoo nnreddit-close-server (&optional server)
+(deffoo nnreddit-close-server (&optional server _defs)
   (nnreddit--normalize-server)
   (condition-case err
       (progn (nnreddit-rpc-kill server) t)
