@@ -933,7 +933,8 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
   (nnreddit--normalize-server)
   (let* ((ret t)
          (kwargs (make-hash-table))
-         (title (or (message-fetch-field "Subject") (error "No Subject field")))
+         (title (or (message-fetch-field "Subject")
+                    (error "nnreddit-request-post: no subject field")))
          (link (message-fetch-field "Link"))
          (reply-p (not (null message-reply-headers)))
          (edit-name (nnreddit--extract-name (message-fetch-field "Supersedes")))
@@ -942,7 +943,8 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
          (article-number (cdr gnus-article-current))
          (group (if (numberp article-number)
                     (gnus-group-real-name (car gnus-article-current))
-                  (or (message-fetch-field "Newsgroups") (error "No Newsgroups field"))))
+                  (or (message-fetch-field "Newsgroups")
+                      (error "nnreddit-request-post: no newsgroups field"))))
          (header (when (numberp article-number)
                    (nnreddit--get-header article-number group)))
          (body
@@ -953,9 +955,14 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
               (buffer-string)))))
     (cond (cancel-name (nnreddit-rpc-call server nil "delete" cancel-name))
           (edit-name (nnreddit-rpc-call server nil "edit" edit-name body))
-          (reply-p (nnreddit-rpc-call server nil "reply"
-                                      (plist-get header :name)
-                                      body (stringp root-p)))
+          (reply-p (if (and header (plist-get header :name))
+                       (nnreddit-rpc-call server nil "reply"
+                                          (plist-get header :name)
+                                          body (stringp root-p))
+                     (backtrace)
+                     (error "nnreddit-request-post: no current article, header=%s name=%s"
+                            header
+                            (when header (plist-get header :name)))))
           (link (let* ((parsed-url (url-generic-parse-url link))
                        (host (url-host parsed-url)))
                   (if (and (stringp host) (not (zerop (length host))))
