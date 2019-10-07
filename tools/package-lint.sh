@@ -24,6 +24,7 @@ INIT_PACKAGE_EL="(progn
                     (quelpa (quote (package-lint :fetcher github :repo \"dickmao/package-lint\" :branch \"datetime\"))) \
                     (let ((dir (file-name-directory (locate-library \"package-lint\")))) \
                         (delete-file (expand-file-name \"package-lint.elc\" dir)) \
+                        (mapc (lambda (x) (princ x)) (directory-files (expand-file-name \"package-lint\" quelpa-build-dir))) \
                         (copy-file (expand-file-name \"package-lint/package-lint.el\" \
                             quelpa-build-dir) (expand-file-name \"package-lint.el\" dir)
                          t)))"
