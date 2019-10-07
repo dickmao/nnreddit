@@ -31,8 +31,6 @@ env:
     - PATH=$HOME/local/bin:$HOME/local/evm/bin:$HOME/local/cask/bin:$PATH
 
 matrix:
-  allow_failures:
-    - env: EMACS_CI=emacs-snapshot
   include:
     - os: linux
       env: EMACS_CI=emacs-25-1 PY=python PIP="${PY} -m pip install --user"
