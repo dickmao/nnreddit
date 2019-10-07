@@ -21,13 +21,14 @@ INIT_PACKAGE_EL="(progn
          --eval "(unless (package-installed-p (quote quelpa)) (package-install (quote quelpa)))" \
          --eval "(unless (package-installed-p (quote package-lint)) \
                     (package-install (quote package-lint)) \
-                    (quelpa (quote (package-lint :fetcher github :repo \"dickmao/package-lint\" :branch \"datetime\"))) \
-                    (let ((dir (file-name-directory (locate-library \"package-lint\")))) \
-                        (delete-file (expand-file-name \"package-lint.elc\" dir)) \
-                        (mapc (lambda (x) (princ x)) (directory-files (expand-file-name \"package-lint\" quelpa-build-dir))) \
-                        (copy-file (expand-file-name \"package-lint/package-lint.el\" \
-                            quelpa-build-dir) (expand-file-name \"package-lint.el\" dir)
-                         t)))"
+                    (let ((quelpa-upgrade-p t)) \
+                      (quelpa (quote (package-lint :fetcher github :repo \"dickmao/package-lint\" :branch \"datetime\"))) \
+                      (let ((dir (file-name-directory (locate-library \"package-lint\")))) \
+                          (delete-file (expand-file-name \"package-lint.elc\" dir)) \
+                          (mapc (lambda (x) (princ (format \"%s\n\" x))) (directory-files (expand-file-name \"package-lint\" quelpa-build-dir))) \
+                          (copy-file (expand-file-name \"package-lint/package-lint.el\" \
+                              quelpa-build-dir) (expand-file-name \"package-lint.el\" dir)
+                           t))))"
 BASENAME=$(basename "$1")
 "$EMACS" -Q -batch \
          --eval "$INIT_PACKAGE_EL" \
