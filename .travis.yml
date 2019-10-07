@@ -39,8 +39,7 @@ matrix:
     - os: linux
       env: EMACS_CI=emacs-26-2 PY=python3 PIP="${PY} -m pip install --user"
     - os: osx
-      language: generic
-      env: EVM_EMACS=emacs-25.2 PY=python PIP="pip install" TOXENV=py27
+      env: EVM_EMACS=emacs-26.3 PY=python PIP="pip install" TOXENV=py27
 
 install:
   - sh tools/install-virtualenv.sh
@@ -54,14 +53,7 @@ install:
   - ${PIP} -r requirements-dev.txt
 
 before_script:
-  - |
-    if [ "x$TRAVIS_OS_NAME" = "xosx" ]; then
-      sh tools/install-evm.sh
-      evm config path $HOME/.evm
-      evm install $EVM_EMACS --use --skip
-    else
-      bash <(curl https://raw.githubusercontent.com/purcell/nix-emacs-ci/master/travis-install)
-    fi
+  - bash <(curl https://raw.githubusercontent.com/purcell/nix-emacs-ci/master/travis-install)
   - emacs --version
   - sh tools/install-cask.sh
 

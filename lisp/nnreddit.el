@@ -584,7 +584,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
 
 (deffoo nnreddit-request-scan (&optional group server)
   (nnreddit--normalize-server)
-  (unless (null group)
+  (when group
     (nnreddit--with-group group
       (let* ((comments (nnreddit-rpc-call server nil "comments" group))
              (raw-submissions (nnreddit-rpc-call server nil "submissions" group))
