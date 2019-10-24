@@ -320,7 +320,10 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
                (connection (json-rpc--create :process proc
                                              :host nnreddit-localhost
                                              :id-counter 0)))
-    (apply #'nnreddit-rpc-request connection generator_kwargs method args)))
+    (condition-case err
+        (apply #'nnreddit-rpc-request connection generator_kwargs method args)
+      (error (gnus-message 3 "nnreddit-rpc-call: %s" (error-message-string err))
+             nil))))
 
 (defun nnreddit-goto-group (realname)
   "Jump to the REALNAME subreddit."
@@ -907,6 +910,8 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
                                                            (error-message-string err)
                                                            resp))))
                                  nil))))
+               do (when (fboundp 'set-process-thread)
+                    (set-process-thread proc nil))
                do (accept-process-output proc iteration-seconds 0)
                finally return
                (cond ((null result)
