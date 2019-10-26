@@ -320,7 +320,10 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
                (connection (json-rpc--create :process proc
                                              :host nnreddit-localhost
                                              :id-counter 0)))
-    (apply #'nnreddit-rpc-request connection generator_kwargs method args)))
+    (condition-case err
+        (apply #'nnreddit-rpc-request connection generator_kwargs method args)
+      (error (gnus-message 3 "nnreddit-rpc-call: %s" (error-message-string err))
+             nil))))
 
 (defun nnreddit-goto-group (realname)
   "Jump to the REALNAME subreddit."
@@ -330,14 +333,23 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
     (gnus-activate-group group t)
     (gnus-group-read-group t t group)))
 
+(defsubst nnreddit--current-article-number ()
+  "`gnus-article-current' is a global variable that gets clobbered."
+  (or (cdr gnus-article-current)
+      (gnus-summary-article-number)))
+
+(defsubst nnreddit--current-group ()
+  "`gnus-article-current' is a global variable that gets clobbered."
+  (or (car gnus-article-current) gnus-newsgroup-name))
+
 (defun nnreddit-vote-current-article (vote)
   "VOTE is +1, -1, 0."
   (unless gnus-newsgroup-name
     (error "No current newgroup"))
-  (if-let ((article-number (or (cdr gnus-article-current)
-                               (gnus-summary-article-number))))
-      (let* ((header (nnreddit--get-header article-number
-                                           (gnus-group-real-name gnus-newsgroup-name)))
+  (if-let ((article-number (nnreddit--current-article-number)))
+      (let* ((header (nnreddit--get-header
+                      article-number
+                      (gnus-group-real-name (nnreddit--current-group))))
              (orig-score (format "%s" (plist-get header :score)))
              (new-score (if (zerop vote) orig-score
                           (concat orig-score " "
@@ -907,6 +919,8 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
                                                            (error-message-string err)
                                                            resp))))
                                  nil))))
+               do (when (fboundp 'set-process-thread)
+                    (set-process-thread proc nil))
                do (accept-process-output proc iteration-seconds 0)
                finally return
                (cond ((null result)
@@ -940,9 +954,9 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
          (edit-name (nnreddit--extract-name (message-fetch-field "Supersedes")))
          (cancel-name (nnreddit--extract-name (message-fetch-field "Control")))
          (root-p (message-fetch-field "Reply-Root"))
-         (article-number (cdr gnus-article-current))
+         (article-number (nnreddit--current-article-number))
          (group (if (numberp article-number)
-                    (gnus-group-real-name (car gnus-article-current))
+                    (gnus-group-real-name (nnreddit--current-group))
                   (or (message-fetch-field "Newsgroups")
                       (error "nnreddit-request-post: no newsgroups field"))))
          (header (when (numberp article-number)
@@ -978,8 +992,8 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
 
 (defun nnreddit--browse-root (&rest _args)
   "What happens when I click on Subject."
-  (-when-let* ((article-number (cdr gnus-article-current))
-               (group (gnus-group-real-name (car gnus-article-current)))
+  (-when-let* ((article-number (nnreddit--current-article-number))
+               (group (gnus-group-real-name (nnreddit--current-group)))
                (header (nnreddit--get-header article-number group))
                (permalink (plist-get header :permalink)))
     (cl-loop for name in (nnreddit-refs-for (plist-get header :name))
@@ -1006,8 +1020,8 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
 
 (defsubst nnreddit--fallback-link ()
   "Cannot render submission."
-  (let* ((group (gnus-group-real-name (car gnus-article-current)))
-         (header (nnreddit--get-header (cdr gnus-article-current) group))
+  (let* ((group (gnus-group-real-name (nnreddit--current-group)))
+         (header (nnreddit--get-header (nnreddit--current-article-number) group))
          (body (nnreddit--get-body (plist-get header :name) group)))
     (with-current-buffer gnus-original-article-buffer
       (article-goto-body)
