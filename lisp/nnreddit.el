@@ -945,7 +945,9 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
          (edit-name (nnreddit--extract-name (message-fetch-field "Supersedes")))
          (cancel-name (nnreddit--extract-name (message-fetch-field "Control")))
          (root-p (message-fetch-field "Reply-Root"))
-         (article-number (cdr gnus-article-current))
+         (article-number (cdr (or gnus-article-current
+                                  (buffer-local-value
+                                   gnus-article-current gnus-summary-buffer))))
          (group (if (numberp article-number)
                     (gnus-group-real-name (car gnus-article-current))
                   (or (message-fetch-field "Newsgroups")
