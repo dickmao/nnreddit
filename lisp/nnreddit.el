@@ -494,6 +494,17 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
     t))
 
+(defsubst nnreddit--shift-ranges (delta ranges)
+  "Shift back by DELTA the elements of RANGES, removing any negative entries."
+  (cl-remove-if-not (lambda (e)
+                      (cond ((numberp e) (> e 0))
+                            (t (> (cdr e) 0))))
+                    (mapcar (lambda (e)
+                              (cond ((numberp e) (- e delta))
+                                    (t `(,(max 1 (- (car e) delta)) .
+                                         ,(- (cdr e) delta)))))
+                            ranges)))
+
 ;; gnus-group-select-group
 ;;   gnus-group-read-group
 ;;     gnus-summary-read-group
@@ -515,6 +526,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                       (gnus-method-simplify (gnus-group-method gnus-newsgroup-name)))))
            (params (gnus-info-params info))
            (newsrc-read-ranges (gnus-info-read info))
+           (newsrc-mark-ranges (gnus-info-marks info))
            (newsrc-seen-cons (gnus-group-parameter-value params 'last-seen t))
            (newsrc-seen-index (car newsrc-seen-cons))
            (newsrc-seen-id (cdr newsrc-seen-cons)))
@@ -564,25 +576,24 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                             (max 0 (- newsrc-seen-index newsrc-seen-index-now))
                           0))
                  (newsrc-read-ranges-shifted
-                  (cl-remove-if-not (lambda (e)
-                                      (cond ((numberp e) (> e 0))
-                                            (t (> (cdr e) 0))))
-                                    (mapcar (lambda (e)
-                                              (cond ((numberp e) (- e delta))
-                                                    (t `(,(max 1 (- (car e) delta)) .
-                                                         ,(- (cdr e) delta)))))
-                                            newsrc-read-ranges))))
+                  (nnreddit--shift-ranges delta newsrc-read-ranges))
+                 (newsrc-mark-ranges-shifted
+                  (mapcar (lambda (what-ranges)
+                            (cl-case (car what-ranges)
+                              ('seen `(seen (1 . ,num-headers)))
+                              (t (cons (car what-ranges)
+                                       (nnreddit--shift-ranges delta (cdr what-ranges))))))
+                          newsrc-mark-ranges)))
             (gnus-message 7 "nnreddit-request-group: seen-id=%s          seen-index=%s -> %s"
                           newsrc-seen-id newsrc-seen-index newsrc-seen-index-now)
             (gnus-message 7 "nnreddit-request-group: seen-id-to-be=%s seen-index-to-be=%s delta=%d"
                           updated-seen-id updated-seen-index delta)
             (gnus-message 7 "nnreddit-request-group: read-ranges=%s shifted-read-ranges=%s"
                           newsrc-read-ranges newsrc-read-ranges-shifted)
+            (gnus-message 7 "nnreddit-request-group: mark-ranges=%s shifted-mark-ranges=%s"
+                          newsrc-mark-ranges newsrc-mark-ranges-shifted)
             (gnus-info-set-read info newsrc-read-ranges-shifted)
-            (gnus-info-set-marks
-             info
-             (append (assq-delete-all 'seen (gnus-info-marks info))
-                     (list `(seen (1 . ,num-headers)))))
+            (gnus-info-set-marks info newsrc-mark-ranges-shifted)
             (when updated-seen-id
               (while (assq 'last-seen params)
                 (gnus-alist-pull 'last-seen params))
