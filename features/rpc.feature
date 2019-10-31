@@ -64,7 +64,7 @@ Scenario: Voting from summary and article buffers
   And I should be in buffer "*Summary nnreddit:PostPreview*"
   And I go to word "Plasky"
   And I press "R ="
-  Then protected see message "Open the article before voting."
+  Then protected see message "Open the article before voting"
   And I press "RET"
   And I press "R ="
   And I switch to buffer "*Article nnreddit:PostPreview*"
