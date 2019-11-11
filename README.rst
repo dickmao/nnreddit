@@ -3,8 +3,8 @@
 A Gnus backend for Reddit.
 
 .. |build-status|
-   image:: https://travis-ci.org/dickmao/nnreddit.svg?branch=master
-   :target: https://travis-ci.org/dickmao/nnreddit
+   image:: https://travis-ci.com/dickmao/nnreddit.svg?branch=master
+   :target: https://travis-ci.com/dickmao/nnreddit
    :alt: Build Status
 .. |melpa-dev|
    image:: https://melpa.org/packages/nnreddit-badge.svg
