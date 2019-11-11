@@ -335,21 +335,22 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 
 (defsubst nnreddit--current-article-number ()
   "`gnus-article-current' is a global variable that gets clobbered."
-  (or (cdr gnus-article-current)
-      (gnus-summary-article-number)))
+  (or (cdr gnus-message-group-art) (cdr gnus-article-current)))
 
 (defsubst nnreddit--current-group ()
   "`gnus-article-current' is a global variable that gets clobbered."
-  (or (car gnus-article-current) gnus-newsgroup-name))
+  (or (car gnus-message-group-art) (car gnus-article-current)))
 
 (defun nnreddit-vote-current-article (vote)
   "VOTE is +1, -1, 0."
   (unless gnus-newsgroup-name
     (error "No current newgroup"))
-  (if-let ((article-number (nnreddit--current-article-number)))
+  (if-let ((article-number (or (nnreddit--current-article-number)
+                               (gnus-summary-article-number))))
       (let* ((header (nnreddit--get-header
                       article-number
-                      (gnus-group-real-name (nnreddit--current-group))))
+                      (gnus-group-real-name (or (nnreddit--current-group)
+                                                gnus-newsgroup-name))))
              (orig-score (format "%s" (plist-get header :score)))
              (new-score (if (zerop vote) orig-score
                           (concat orig-score " "
@@ -364,7 +365,7 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
                            (let ((inhibit-read-only t))
                              (nnheader-replace-header "Score" new-score)))
                          (nnreddit-rpc-call nil nil "vote" article-name vote))
-                (message "Open the article before voting."))))))
+                (message "Open the article before voting"))))))
     (error "No current article")))
 
 (defsubst nnreddit--gate (&optional group)
@@ -494,6 +495,17 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s...done" group)
     t))
 
+(defsubst nnreddit--shift-ranges (delta ranges)
+  "Shift back by DELTA the elements of RANGES, removing any negative entries."
+  (cl-remove-if-not (lambda (e)
+                      (cond ((numberp e) (> e 0))
+                            (t (> (cdr e) 0))))
+                    (mapcar (lambda (e)
+                              (cond ((numberp e) (- e delta))
+                                    (t `(,(max 1 (- (car e) delta)) .
+                                         ,(- (cdr e) delta)))))
+                            ranges)))
+
 ;; gnus-group-select-group
 ;;   gnus-group-read-group
 ;;     gnus-summary-read-group
@@ -515,6 +527,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                       (gnus-method-simplify (gnus-group-method gnus-newsgroup-name)))))
            (params (gnus-info-params info))
            (newsrc-read-ranges (gnus-info-read info))
+           (newsrc-mark-ranges (gnus-info-marks info))
            (newsrc-seen-cons (gnus-group-parameter-value params 'last-seen t))
            (newsrc-seen-index (car newsrc-seen-cons))
            (newsrc-seen-id (cdr newsrc-seen-cons)))
@@ -564,25 +577,24 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                             (max 0 (- newsrc-seen-index newsrc-seen-index-now))
                           0))
                  (newsrc-read-ranges-shifted
-                  (cl-remove-if-not (lambda (e)
-                                      (cond ((numberp e) (> e 0))
-                                            (t (> (cdr e) 0))))
-                                    (mapcar (lambda (e)
-                                              (cond ((numberp e) (- e delta))
-                                                    (t `(,(max 1 (- (car e) delta)) .
-                                                         ,(- (cdr e) delta)))))
-                                            newsrc-read-ranges))))
+                  (nnreddit--shift-ranges delta newsrc-read-ranges))
+                 (newsrc-mark-ranges-shifted
+                  (mapcar (lambda (what-ranges)
+                            (cl-case (car what-ranges)
+                              ('seen `(seen (1 . ,num-headers)))
+                              (t (cons (car what-ranges)
+                                       (nnreddit--shift-ranges delta (cdr what-ranges))))))
+                          newsrc-mark-ranges)))
             (gnus-message 7 "nnreddit-request-group: seen-id=%s          seen-index=%s -> %s"
                           newsrc-seen-id newsrc-seen-index newsrc-seen-index-now)
             (gnus-message 7 "nnreddit-request-group: seen-id-to-be=%s seen-index-to-be=%s delta=%d"
                           updated-seen-id updated-seen-index delta)
             (gnus-message 7 "nnreddit-request-group: read-ranges=%s shifted-read-ranges=%s"
                           newsrc-read-ranges newsrc-read-ranges-shifted)
+            (gnus-message 7 "nnreddit-request-group: mark-ranges=%s shifted-mark-ranges=%s"
+                          newsrc-mark-ranges newsrc-mark-ranges-shifted)
             (gnus-info-set-read info newsrc-read-ranges-shifted)
-            (gnus-info-set-marks
-             info
-             (append (assq-delete-all 'seen (gnus-info-marks info))
-                     (list `(seen (1 . ,num-headers)))))
+            (gnus-info-set-marks info newsrc-mark-ranges-shifted)
             (when updated-seen-id
               (while (assq 'last-seen params)
                 (gnus-alist-pull 'last-seen params))
@@ -883,6 +895,17 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
         (push proc nnreddit-processes))
       proc)))
 
+(defmacro nnreddit--with-mutex (mtx &rest body)
+  "If capable of threading, lock with MTX and execute BODY."
+  (declare (indent 1))
+  (if (fboundp 'with-mutex)
+      `(with-mutex ,mtx ,@body)
+    `(progn ,@body)))
+
+(defvar nnreddit--mutex-rpc-request (when (fboundp 'make-mutex)
+                                      (make-mutex "nnreddit--mutex-rpc-request"))
+  "Only one jsonrpc output buffer, so avoid two requests using at the same time.")
+
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
   "Send to CONNECTION a request with generator KWARGS calling METHOD ARGS.
 
@@ -898,40 +921,41 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
          (json-object-type 'plist)
          (json-key-type 'keyword)
          (iteration-seconds 6))
-    (with-current-buffer (process-buffer proc)
-      (erase-buffer)
-      (gnus-message 7 "nnreddit-rpc-request: send %s" encoded)
-      (process-send-string proc (concat encoded "\n"))
-      (cl-loop repeat (/ nnreddit-rpc-request-timeout iteration-seconds)
-               with result
-               until (or (not (json-rpc-live-p connection))
-                         (and (not (zerop (length (buffer-string))))
-                              (condition-case err
-                                  (setq result (json-read-from-string (buffer-string)))
-                                (error
-                                 (let* ((resp (if (< (length (buffer-string)) 100)
-                                                  (buffer-string)
-                                                (format "%s...%s"
-                                                        (cl-subseq (buffer-string) 0 50)
-                                                        (cl-subseq (buffer-string) -50)))))
-                                   (setq result
-                                         `(:error ,(format "%s on %s"
-                                                           (error-message-string err)
-                                                           resp))))
-                                 nil))))
-               do (when (fboundp 'set-process-thread)
-                    (set-process-thread proc nil))
-               do (accept-process-output proc iteration-seconds 0)
-               finally return
-               (cond ((null result)
-                      (error "nnreddit-rpc-request: response timed out"))
-                     ((plist-get result :error)
-                      (error "nnreddit-rpc-request: %s" (plist-get result :error)))
-                     (t
-                      (gnus-message 7 "nnreddit-rpc-request: recv ...%s"
-                                    (cl-subseq (buffer-string)
-                                               (- (min (length (buffer-string)) 50))))
-                      (plist-get result :result)))))))
+    (nnreddit--with-mutex nnreddit--mutex-rpc-request
+      (with-current-buffer (process-buffer proc)
+        (erase-buffer)
+        (gnus-message 7 "nnreddit-rpc-request: send %s" encoded)
+        (process-send-string proc (concat encoded "\n"))
+        (cl-loop repeat (/ nnreddit-rpc-request-timeout iteration-seconds)
+                 with result
+                 until (or (not (json-rpc-live-p connection))
+                           (and (not (zerop (length (buffer-string))))
+                                (condition-case err
+                                    (setq result (json-read-from-string (buffer-string)))
+                                  (error
+                                   (let* ((resp (if (< (length (buffer-string)) 100)
+                                                    (buffer-string)
+                                                  (format "%s...%s"
+                                                          (cl-subseq (buffer-string) 0 50)
+                                                          (cl-subseq (buffer-string) -50)))))
+                                     (setq result
+                                           `(:error ,(format "%s on %s"
+                                                             (error-message-string err)
+                                                             resp))))
+                                   nil))))
+                 do (when (fboundp 'set-process-thread)
+                      (set-process-thread proc nil))
+                 do (accept-process-output proc iteration-seconds 0)
+                 finally return
+                 (cond ((null result)
+                        (error "nnreddit-rpc-request: response timed out"))
+                       ((plist-get result :error)
+                        (error "nnreddit-rpc-request: %s" (plist-get result :error)))
+                       (t
+                        (gnus-message 7 "nnreddit-rpc-request: recv ...%s"
+                                      (cl-subseq (buffer-string)
+                                                 (- (min (length (buffer-string)) 50))))
+                        (plist-get result :result))))))))
 
 (defsubst nnreddit--extract-name (from)
   "String match on something looking like t1_es076hd in FROM."

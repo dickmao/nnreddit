@@ -1,3 +1,4 @@
+(source gnu)
 (source melpa)
 
 (package-descriptor "lisp/nnreddit-pkg.el")
@@ -5,5 +6,6 @@
 
 (development
  (depends-on "ert-runner")
+ (depends-on "package-lint")
  (depends-on "ecukes")
  (depends-on "f"))
