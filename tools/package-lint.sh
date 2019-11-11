@@ -1,5 +1,7 @@
 #!/bin/sh -e
 
+. tools/retry.sh
+
 EMACS="${EMACS:=emacs}"
 BASENAME=$(basename "$1")
 
@@ -11,7 +13,7 @@ BASENAME=$(basename "$1")
            2>&1 | egrep -a "^$BASENAME:" | egrep -v "Messages should start" | grep "." )
 
 # this repo uses datetime versions
-( cd /tmp ; curl -OskL https://raw.githubusercontent.com/dickmao/package-lint/datetime/package-lint.el )
+( cd /tmp ; travis_retry curl -OskL https://raw.githubusercontent.com/dickmao/package-lint/datetime/package-lint.el )
 
 cask emacs -Q --batch \
            --eval "(let ((dir (file-name-directory (locate-library \"package-lint\")))) \
@@ -22,7 +24,7 @@ cask emacs -Q --batch \
 
 # Reduce purity via:
 # --eval "(fset 'package-lint--check-defs-prefix (symbol-function 'ignore))" \
-cask emacs -Q --batch \
+travis_retry cask emacs -Q --batch \
            -l package-lint \
            --eval "(package-initialize)" \
            --eval "(push (quote (\"melpa\" . \"http://melpa.org/packages/\")) \
