@@ -38,7 +38,7 @@ clean:
 .PHONY: test-compile
 test-compile: autoloads
 	pylint nnreddit
-	sh -ex tools/package-lint.sh lisp/nnreddit.el
+	sh -e tools/package-lint.sh lisp/nnreddit.el
 	cask install
 	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | egrep -a "(Warning|Error):")
 	cask clean-elc
