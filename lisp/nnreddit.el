@@ -188,7 +188,7 @@ name where this file resides) and the `nnreddit-python-command'."
   :group 'nnreddit)
 
 (defcustom nnreddit-rpc-request-timeout 60
-  "Turn on PRAW logging."
+  "Timeout for talking to PRAW."
   :type 'integer
   :group 'nnreddit)
 
