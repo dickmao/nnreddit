@@ -35,6 +35,8 @@ Then
 
 Alternatively, directly clone this repo and ``make install``.
 
+Upon first use, ``nnreddit`` will self-install its ``requirements.txt`` which currently consists only of ``virtualenv``.  You can forestall a potential install bug by ensuring your python installation already contains ``virtualenv``.
+
 Usage
 =====
 In your ``.emacs`` or ``init.el``, use ONE of the following:
