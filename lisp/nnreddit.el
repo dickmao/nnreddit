@@ -330,8 +330,10 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
   (interactive (list (read-no-blanks-input "Subreddit: r/")))
   (let* ((canonical (nnreddit-rpc-call nil nil "canonical_spelling" realname))
          (group (gnus-group-full-name canonical "nnreddit")))
-    (gnus-activate-group group t)
-    (gnus-group-read-group t t group)))
+    (if group
+        (progn (gnus-activate-group group t)
+               (gnus-group-read-group t t group))
+      (gnus-message 3 "nnreddit-goto-group: failed canonical_spelling of %s" realname))))
 
 (defsubst nnreddit--current-article-number ()
   "`gnus-article-current' is a global variable that gets clobbered."
