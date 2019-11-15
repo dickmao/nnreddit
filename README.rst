@@ -16,6 +16,9 @@ A Gnus backend for Reddit.
    :alt: MELPA stable version
 
 .. image:: screenshot.png
+.. |--| unicode:: U+2013   .. en dash
+.. |---| unicode:: U+2014  .. em dash, trimming surrounding whitespace
+   :trim:
 
 Install
 =======
@@ -34,23 +37,25 @@ Alternatively, directly clone this repo and ``make install``.
 
 Usage
 =====
-In your ``.gnus`` or ``.emacs``,
+In your ``.emacs`` or ``init.el``, use ONE of the following:
 
 ::
 
-   (add-to-list 'gnus-secondary-select-methods
-                '(nnreddit ""))
+   ;; Applies to first-time Gnus users
+   (custom-set-variables '(gnus-select-method (quote (nnreddit ""))))
 
-A typical session might look like::
+or, if you're an existing Gnus user,
 
-   M-x gnus
-   R g emacsy
-   q
-   u
+::
 
-Keybinding ``u`` (gnus-group-unsubscribe-current-group) actually *toggles* subscription to ``r/emacsy``.  I don't make the rules.
+   ;; Applies to existing Gnus users
+   (add-to-list 'gnus-secondary-select-methods '(nnreddit ""))
 
-Reenter the ``emacsy`` newsgroup with ``RET``.  Rapidly catch yourself up via ``N`` and ``P``.  Instantly catch-up with ``c``.
+Then ``M-x gnus``.
+
+Initial setup should guide you through OAuth and find your existing subreddit subscriptions.
+
+Select a subreddit via ``RET``.  Rapidly catch yourself up via ``N`` and ``P``.  Instantly catch-up with ``c``.
 
 Create a post via ``a``.
 
@@ -66,7 +71,13 @@ From the summary buffer, ``/o`` redisplays articles already read.  ``x`` undispl
 
 ``S c`` cancels articles.
 
+``R g [subreddit]`` takes you to an *unsubscribed* subreddit.
+
+You can subscribe to it via the ``u`` keybinding from the ``*Group*`` buffer [1]_.
+
 Gnus beginners may find the interface bewildering.  In particular, subreddits with no unread articles do not display.  Use ``L`` to bring them out of hiding.
+
+.. [1] Gnus users are familiar with the tragedy of ``u`` doing double duty as subscriber and unsubscriber.  ``u`` is really a toggle even though the attached command is ``gnus-group-unsubscribe-current-group`` |---| if that doesn't trigger your UX sensibility, then never mind I mentioned it.
 
 .. _Cask: https://cask.readthedocs.io/en/latest/guide/installation.html
 .. _Getting started: http://melpa.org/#/getting-started
