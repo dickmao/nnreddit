@@ -337,18 +337,23 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 
 (defsubst nnreddit--current-article-number ()
   "`gnus-article-current' is a global variable that gets clobbered."
-  (or (cdr gnus-message-group-art) (cdr gnus-article-current)))
+  (or (cdr gnus-message-group-art)
+      (with-current-buffer gnus-summary-buffer
+        (cdr gnus-article-current))))
 
 (defsubst nnreddit--current-group ()
   "`gnus-article-current' is a global variable that gets clobbered."
-  (or (car gnus-message-group-art) (car gnus-article-current)))
+  (or (car gnus-message-group-art)
+      (with-current-buffer gnus-summary-buffer
+        (car gnus-article-current))))
 
 (defun nnreddit-vote-current-article (vote)
   "VOTE is +1, -1, 0."
   (unless gnus-newsgroup-name
     (error "No current newgroup"))
   (if-let ((article-number (or (nnreddit--current-article-number)
-                               (gnus-summary-article-number))))
+                               (with-current-buffer gnus-summary-buffer
+                                 (gnus-summary-article-number)))))
       (let* ((header (nnreddit--get-header
                       article-number
                       (gnus-group-real-name (or (nnreddit--current-group)
