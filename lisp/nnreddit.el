@@ -1224,11 +1224,9 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
         (lambda (f &rest args)
           (cond ((nnreddit--gate)
                  (remove-function (symbol-function 'gnus-summary-followup) prompt-loose)
-                 (condition-case err
-                     (prog1 (apply f args)
-                       (funcall advise-gnus-summary-followup))
-                   (error (funcall advise-gnus-summary-followup)
-                          (error (error-message-string err)))))
+                 (unwind-protect
+                     (apply f args)
+                   (funcall advise-gnus-summary-followup)))
                 (t (apply f args)))))
        (advise-gnus-summary-cancel-article
         (lambda ()
@@ -1238,13 +1236,22 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
   (funcall advise-gnus-summary-followup))
 
 (add-function
+ :around (symbol-function 'message-followup)
+ (lambda (f &rest args)
+   (let ((reddit-from (and (nnreddit--gate) (message-make-from))))
+     (prog1 (apply f args)
+       (when reddit-from
+         (save-excursion
+           (message-replace-header "From" reddit-from)))))))
+
+(add-function
  :around (symbol-function 'message-supersede)
  (lambda (f &rest args)
    (cond ((nnreddit--gate)
           (add-function :override
                         (symbol-function 'mml-insert-mml-markup)
                         'ignore)
-          (condition-case err
+          (unwind-protect
               (prog1 (apply f args)
                 (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)
                 (save-excursion
@@ -1255,8 +1262,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                     (goto-char (point-max))
                     (mm-inline-text-html nil)
                     (delete-region (point-min) (point)))))
-            (error (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)
-                   (error (error-message-string err)))))
+            (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)))
          (t (apply f args)))))
 
 (add-function
@@ -1267,14 +1273,12 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                              (when (cl-search "mpty article" prompt) t)))
                  (link-p (not (null (message-fetch-field "Link"))))
                  (message-shoot-gnksa-feet (if link-p t message-shoot-gnksa-feet)))
-            (condition-case err
+            (unwind-protect
                 (progn
                   (when link-p
                     (add-function :before-until (symbol-function 'y-or-n-p) dont-ask))
-                  (prog1 (apply f args)
-                    (remove-function (symbol-function 'y-or-n-p) dont-ask)))
-              (error (remove-function (symbol-function 'y-or-n-p) dont-ask)
-                     (error (error-message-string err))))))
+                  (apply f args))
+              (remove-function (symbol-function 'y-or-n-p) dont-ask))))
          (t (apply f args)))))
 
 (add-function
@@ -1324,11 +1328,9 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
        (add-function :around
                      (symbol-function 'message-fetch-field)
                      concat-func))
-     (condition-case err
-         (prog1 (apply f args)
-           (remove-function (symbol-function 'message-fetch-field) concat-func))
-       (error (remove-function (symbol-function 'message-fetch-field) concat-func)
-              (error (error-message-string err)))))))
+     (unwind-protect
+         (apply f args)
+       (remove-function (symbol-function 'message-fetch-field) concat-func)))))
 
 (add-function
  :around (symbol-function 'url-http-generic-filter)
