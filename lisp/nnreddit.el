@@ -712,13 +712,13 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
   (nnreddit--normalize-server)
   (nnreddit--with-group group
     (with-current-buffer (or buffer nntp-server-buffer)
-      (erase-buffer)
       (let* ((header (nnreddit--get-header article-number group))
              (mail-header (nnreddit--make-header article-number))
              (score (cdr (assq 'X-Reddit-Score (mail-header-extra mail-header))))
              (permalink (cdr (assq 'X-Reddit-Permalink (mail-header-extra mail-header))))
              (body (nnreddit--get-body (plist-get header :name) group server)))
         (when body
+          (erase-buffer)
           (insert
            "Newsgroups: " group "\n"
            "Subject: " (mail-header-subject mail-header)  "\n"
