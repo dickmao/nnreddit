@@ -708,10 +708,6 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
             ((string= type "text") data)
             (t (error "nnreddit--content-handler: passing on %s" content-type))))))
 
-(defmacro nnreddit--concat (thus-far &rest add)
-  "Assign to THUS-FAR the catenation of itself and ADD."
-  `(setq ,thus-far (apply #'concat ,thus-far (list ,@add))))
-
 (deffoo nnreddit-request-article (article-number &optional group server buffer)
   (nnreddit--normalize-server)
   (nnreddit--with-group group
@@ -720,46 +716,40 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
              (mail-header (nnreddit--make-header article-number))
              (score (cdr (assq 'X-Reddit-Score (mail-header-extra mail-header))))
              (permalink (cdr (assq 'X-Reddit-Permalink (mail-header-extra mail-header))))
-             (body (nnreddit--get-body (plist-get header :name) group server))
-             (at-once ""))
+             (body (nnreddit--get-body (plist-get header :name) group server)))
         (when body
-          (nnreddit--concat at-once
-                            "Newsgroups: " group "\n"
-                            "Subject: " (mail-header-subject mail-header)  "\n"
-                            "From: " (or (mail-header-from mail-header) "nobody") "\n"
-                            "Date: " (mail-header-date mail-header) "\n"
-                            "Message-ID: " (mail-header-id mail-header) "\n"
-                            "References: " (mail-header-references mail-header) "\n"
-                            "Content-Type: text/html; charset=utf-8" "\n"
-                            (if permalink
-                                (format "Archived-at: <https://www.reddit.com%s>\n"
-                                        permalink)
-                              "")
-                            "Score: " score "\n"
-                            "\n")
+          (erase-buffer)
+          (insert
+           "Newsgroups: " group "\n"
+           "Subject: " (mail-header-subject mail-header)  "\n"
+           "From: " (or (mail-header-from mail-header) "nobody") "\n"
+           "Date: " (mail-header-date mail-header) "\n"
+           "Message-ID: " (mail-header-id mail-header) "\n"
+           "References: " (mail-header-references mail-header) "\n"
+           "Content-Type: text/html; charset=utf-8" "\n"
+           (if permalink
+               (format "Archived-at: <https://www.reddit.com%s>\n" permalink)
+             "")
+           "Score: " score "\n"
+           "\n")
           (-when-let*
               ((parent-name (plist-get header :parent_id)) ;; parent_id is full
                (parent-author (or (nnreddit--gethash parent-name nnreddit-authors-hashtb)
                                   "Someone"))
                (parent-body (nnreddit--get-body parent-name group server)))
-            (nnreddit--concat at-once
-                              (nnreddit--citation-wrap parent-author parent-body)))
+            (insert (nnreddit--citation-wrap parent-author parent-body)))
           (aif (and nnreddit-render-submission
                     (eq (plist-get header :is_self) :json-false)
                     (plist-get header :url))
               (condition-case err
                   (nnreddit--request
                    "nnreddit-request-article" it
-                   :success
-                   (lambda (&rest args)
-                     (nnreddit--concat at-once
-                                      (apply #'nnreddit--content-handler args))))
+                   :success (lambda (&rest args)
+                              (insert (apply #'nnreddit--content-handler args))))
                 (error (gnus-message 5 "nnreddit-request-article: %s %s"
                                      it (error-message-string err))
-                       (nnreddit--concat at-once (nnreddit--br-tagify body))))
-            (nnreddit--concat at-once (nnreddit--br-tagify body)))
-          (erase-buffer)
-          (insert at-once)
+                       (insert (nnreddit--br-tagify body))))
+            (insert (nnreddit--br-tagify body)))
           (cons group article-number))))))
 
 (deffoo nnreddit-retrieve-headers (article-numbers &optional group server _fetch-old)
