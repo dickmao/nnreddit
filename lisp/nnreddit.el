@@ -68,30 +68,6 @@ Otherwise, just display link."
   :type 'boolean
   :group 'nnreddit)
 
-(defmacro nnreddit--type-of-method (method)
-  "Return 'stateful or 'display depending on METHOD."
-  `(cl-case (intern ,method)
-     ((comments submissions) 'stateful)
-     (otherwise 'display)))
-
-(defvar nnreddit--mutex-by-method-type
-  `((stateful .
-              ,(when (fboundp 'make-mutex)
-                 (make-mutex "nnreddit--mutex-stateful")))
-    (display .
-             ,(when (fboundp 'make-mutex)
-                (make-mutex "nnreddit--mutex-display"))))
-  "Only one jsonrpc output buffer, so avoid two requests using at the same time.")
-
-(defmacro nnreddit--with-mutex (method &rest body)
-  "If capable of threading, lock with METHOD dependent mutex and execute BODY."
-  (declare (indent 1))
-  (if (fboundp 'with-mutex)
-      `(let ((type (nnreddit--type-of-method ,method)))
-         (with-mutex (cdr (assq type nnreddit--mutex-by-method-type))
-           ,@body))
-    `(progn ,@body)))
-
 (defmacro nnreddit--gethash (string hashtable)
   "Get corresponding value of STRING from HASHTABLE.
 
@@ -338,7 +314,7 @@ Normalize it to \"nnreddit-default\"."
 
 Process stays the same, but the jsonrpc connection (a cheap struct) gets reinstantiated with every call."
   (nnreddit--normalize-server)
-  (-when-let* ((proc (nnreddit-rpc-get method server))
+  (-when-let* ((proc (nnreddit-rpc-get server))
                (connection (json-rpc--create :process proc
                                              :host nnreddit-localhost
                                              :id-counter 0)))
@@ -421,7 +397,8 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
   (interactive (list nil))
   (nnreddit--normalize-server)
   (let (new-processes)
-    (mapc (lambda (proc) (if (and server (not (cl-search server (process-name proc))))
+    (mapc (lambda (proc) (if (and server (not (string= (nnreddit--process-name server)
+                                                       (process-name proc))))
                              (push proc new-processes)
                            (delete-process proc)))
           nnreddit-processes)
@@ -436,8 +413,9 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 
 (deffoo nnreddit-server-opened (&optional server)
   (nnreddit--normalize-server)
-  (cl-remove-if-not (lambda (proc) (cl-search server (process-name proc)))
-                    nnreddit-processes))
+  (cl-remove-if-not (lambda (proc) (string= (nnreddit--process-name server)
+                                            (process-name proc)))
+                 nnreddit-processes))
 
 (deffoo nnreddit-status-message (&optional server)
   (nnreddit--normalize-server)
@@ -636,7 +614,6 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
     t))
 
 (deffoo nnreddit-request-scan (&optional group server)
-  "Main thread can do this too.  Cannot bifurcate on stateful versus display."
   (nnreddit--normalize-server)
   (when group
     (nnreddit--with-group group
@@ -894,17 +871,19 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   "If we can't install the virtualenv then all bets are off."
   (string= nnreddit-venv "/dev/null"))
 
-(defsubst nnreddit--process-name (method server)
-  "METHOD can be stateful or display.  Append SERVER."
-  (concat server "-" (symbol-name (nnreddit--type-of-method method))))
+(defsubst nnreddit--process-name (server)
+  "Amalgamate SERVER and thread name."
+  (format "%s%s" server
+          (cond ((and (fboundp 'thread-name) (fboundp 'current-thread))
+                 (aif (thread-name (current-thread))
+                     (concat "-" it) ""))
+                (t ""))))
 
-(defun nnreddit-rpc-get (method &optional server)
-  "Retrieve the PRAW process for METHOD and SERVER.
-
-Currently two processes, one for stateful METHODs and one for display METHODs."
+(defun nnreddit-rpc-get (&optional server)
+  "Retrieve the PRAW process for SERVER."
   (nnreddit--normalize-server)
   (unless (nnreddit--install-failed)
-    (let* ((proc-name (nnreddit--process-name method server))
+    (let* ((proc-name (nnreddit--process-name server))
            (proc-buffer (get-buffer-create (format " *%s*" proc-name)))
            (proc-stderr-buffer (get-buffer-create (format " *%s-stderr*" proc-name)))
            (proc (get-buffer-process proc-buffer)))
@@ -960,41 +939,40 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
          (json-object-type 'plist)
          (json-key-type 'keyword)
          (iteration-seconds 6))
-    (nnreddit--with-mutex method
-      (with-current-buffer (process-buffer proc)
-        (erase-buffer)
-        (gnus-message 7 "nnreddit-rpc-request: send %s" encoded)
-        (process-send-string proc (concat encoded "\n"))
-        (cl-loop repeat (/ nnreddit-rpc-request-timeout iteration-seconds)
-                 with result
-                 until (or (not (json-rpc-live-p connection))
-                           (and (not (zerop (length (buffer-string))))
-                                (condition-case err
-                                    (setq result (json-read-from-string (buffer-string)))
-                                  (error
-                                   (let* ((resp (if (< (length (buffer-string)) 100)
-                                                    (buffer-string)
-                                                  (format "%s...%s"
-                                                          (cl-subseq (buffer-string) 0 50)
-                                                          (cl-subseq (buffer-string) -50)))))
-                                     (setq result
-                                           `(:error ,(format "%s on %s"
-                                                             (error-message-string err)
-                                                             resp))))
-                                   nil))))
-                 do (when (fboundp 'set-process-thread)
-                      (set-process-thread proc nil))
-                 do (accept-process-output proc iteration-seconds 0)
-                 finally return
-                 (cond ((null result)
-                        (error "nnreddit-rpc-request: response timed out"))
-                       ((plist-get result :error)
-                        (error "nnreddit-rpc-request: %s" (plist-get result :error)))
-                       (t
-                        (gnus-message 7 "nnreddit-rpc-request: recv ...%s"
-                                      (cl-subseq (buffer-string)
-                                                 (- (min (length (buffer-string)) 50))))
-                        (plist-get result :result))))))))
+    (with-current-buffer (process-buffer proc)
+      (erase-buffer)
+      (gnus-message 7 "nnreddit-rpc-request: send %s" encoded)
+      (process-send-string proc (concat encoded "\n"))
+      (cl-loop repeat (/ nnreddit-rpc-request-timeout iteration-seconds)
+               with result
+               until (or (not (json-rpc-live-p connection))
+                         (and (not (zerop (length (buffer-string))))
+                              (condition-case err
+                                  (setq result (json-read-from-string (buffer-string)))
+                                (error
+                                 (let* ((resp (if (< (length (buffer-string)) 100)
+                                                  (buffer-string)
+                                                (format "%s...%s"
+                                                        (cl-subseq (buffer-string) 0 50)
+                                                        (cl-subseq (buffer-string) -50)))))
+                                   (setq result
+                                         `(:error ,(format "%s on %s"
+                                                           (error-message-string err)
+                                                           resp))))
+                                 nil))))
+               do (when (fboundp 'set-process-thread)
+                    (set-process-thread proc nil))
+               do (accept-process-output proc iteration-seconds 0)
+               finally return
+               (cond ((null result)
+                      (error "nnreddit-rpc-request: response timed out"))
+                     ((plist-get result :error)
+                      (error "nnreddit-rpc-request: %s" (plist-get result :error)))
+                     (t
+                      (gnus-message 7 "nnreddit-rpc-request: recv ...%s"
+                                    (cl-subseq (buffer-string)
+                                               (- (min (length (buffer-string)) 50))))
+                      (plist-get result :result)))))))
 
 (defsubst nnreddit--extract-name (from)
   "String match on something looking like t1_es076hd in FROM."
