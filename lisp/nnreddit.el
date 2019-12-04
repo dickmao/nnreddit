@@ -338,8 +338,9 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 (defsubst nnreddit--current-article-number ()
   "`gnus-article-current' is a global variable that gets clobbered."
   (or (cdr gnus-message-group-art)
-      (with-current-buffer gnus-summary-buffer
-        (cdr gnus-article-current))))
+      (and (gnus-buffer-live-p gnus-summary-buffer)
+           (with-current-buffer gnus-summary-buffer
+             (cdr gnus-article-current)))))
 
 (defsubst nnreddit--current-group ()
   "`gnus-article-current' is a global variable that gets clobbered."
