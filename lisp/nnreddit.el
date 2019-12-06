@@ -1303,15 +1303,16 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                                                    link-header))
                  (remove-link-header (apply-partially #'remove-hook
                                                       'message-header-setup-hook
-                                                      link-header)))
+                                                      link-header))
+                 (reddit-from (message-make-from)))
             (cl-case nnreddit-post-type
               (?l (funcall add-link-header)))
-            (condition-case err
-                (progn
-                  (apply f args)
-                  (funcall remove-link-header))
-              (error (funcall remove-link-header)
-                     (error (error-message-string err))))))
+            (unwind-protect
+                (prog1 (apply f args)
+                  (when reddit-from
+                    (save-excursion
+                      (message-replace-header "From" reddit-from))))
+              (funcall remove-link-header))))
          (t (apply f args)))))
 
 (add-function
