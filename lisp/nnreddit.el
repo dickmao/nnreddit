@@ -101,12 +101,12 @@ Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtab
   :group 'nnreddit)
 
 (defcustom nnreddit-venv
-  (let* ((library-directory (file-name-directory (locate-library "nnreddit")))
+  (let* ((requirements-directory (file-name-directory (locate-library "requirements.txt")))
          (defacto-version (file-name-nondirectory
-                           (directory-file-name library-directory)))
+                           (directory-file-name requirements-directory)))
          (venv-id (concat defacto-version "-" nnreddit-python-command))
          (result (concat venv-location venv-id))
-         (requirements (concat library-directory "requirements.txt"))
+         (requirements (concat requirements-directory "requirements.txt"))
          (install-args (if (file-exists-p requirements)
                            (list "-r" requirements)
                          (list "virtualenv")))
@@ -140,7 +140,7 @@ Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtab
                     venv-id
                     ;; `python` and not `nnreddit-python-command` because
                     ;; venv normalizes the executable to `python`.
-                    (format "cd %s && python setup.py install" library-directory))
+                    (format "cd %s && python setup.py install" requirements-directory))
                    (gnus-message 5 "nnreddit-venv: installing venv to %s...done" result)
                    result)
                (error (when (venv-is-valid venv-id)
@@ -320,7 +320,7 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
                (connection (json-rpc--create :process proc
                                              :host nnreddit-localhost
                                              :id-counter 0)))
-    (condition-case err
+    (condition-case-unless-debug err
         (apply #'nnreddit-rpc-request connection generator_kwargs method args)
       (error (gnus-message 3 "nnreddit-rpc-call: %s" (error-message-string err))
              nil))))
@@ -415,8 +415,9 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 
 (deffoo nnreddit-server-opened (&optional server)
   (nnreddit--normalize-server)
-  (cl-remove-if-not (lambda (proc) (string= server (process-name proc)))
-                 nnreddit-processes))
+  (setq nnreddit-processes
+        (cl-remove-if-not (lambda (proc) (string= server (process-name proc)))
+                          nnreddit-processes)))
 
 (deffoo nnreddit-status-message (&optional server)
   (nnreddit--normalize-server)
@@ -859,6 +860,9 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                   (car (process-command process))
                   (replace-regexp-in-string "\n$" "" event))
     (setq nnreddit-headers-hashtb (gnus-make-hashtable))
+    (setq nnreddit-processes (cl-remove-if (lambda (other) (string= (process-name process)
+                                                                    (process-name other)))
+                                           nnreddit-processes))
     (gnus-backlog-shutdown)))
 
 (defun nnreddit--message-user (server beg end _prev-len)
@@ -871,6 +875,18 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 (defsubst nnreddit--install-failed ()
   "If we can't install the virtualenv then all bets are off."
   (string= nnreddit-venv "/dev/null"))
+
+(defun nnreddit-dump-diagnostics (&optional server)
+  "Makefile recipe test-run.  SERVER is usually nnreddit-default."
+  (nnreddit--normalize-server)
+  (dolist (b `(,byte-compile-log-buffer
+               ,gnus-group-buffer
+               "*Messages*"
+               ,(format " *%s*" server)
+               ,(format " *%s-stderr*" server)))
+    (when (buffer-live-p (get-buffer b))
+      (princ (format "\nBuffer: %s\n%s\n\n" b (with-current-buffer b (buffer-string)))
+             #'external-debugging-output))))
 
 (defun nnreddit-rpc-get (&optional server)
   "Retrieve the PRAW process for SERVER."
