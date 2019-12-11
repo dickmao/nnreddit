@@ -94,7 +94,7 @@ test-run:
 	  $(TESTRUN) \
 	  --eval "(require 'nnreddit)" \
 	  --eval "(cl-assert (nnreddit-rpc-get))" \
-	  --eval "(sleep-for 0 8000)" \
+	  --eval "(sleep-for 0 7300)" \
 	  -f nnreddit-dump-diagnostics \
 	  --eval "(cl-assert nnreddit-processes)"
 

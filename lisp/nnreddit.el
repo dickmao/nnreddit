@@ -101,7 +101,11 @@ Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtab
   :group 'nnreddit)
 
 (defcustom nnreddit-venv
-  (let* ((requirements-directory (file-name-directory (locate-library "requirements.txt")))
+  (let* ((library-directory (file-name-directory (locate-library "nnreddit")))
+         (parent-directory (file-name-directory (directory-file-name library-directory)))
+         (requirements-directory
+          (file-name-directory (locate-library "requirements.txt" nil
+                                              (list library-directory parent-directory))))
          (defacto-version (file-name-nondirectory
                            (directory-file-name requirements-directory)))
          (venv-id (concat defacto-version "-" nnreddit-python-command))
