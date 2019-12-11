@@ -37,6 +37,8 @@ Alternatively, directly clone this repo and ``make install``.
 
 Upon first use, ``nnreddit`` will self-install its ``requirements.txt`` which currently consists only of ``virtualenv``.  You can forestall a potential install bug by ensuring your python installation already contains ``virtualenv``.
 
+Also see Troubleshooting_.
+
 Usage
 =====
 In your ``.emacs`` or ``init.el``, use ONE of the following:
@@ -78,6 +80,10 @@ From the summary buffer, ``/o`` redisplays articles already read.  ``x`` undispl
 You can subscribe to it via the ``u`` keybinding from the ``*Group*`` buffer [1]_.
 
 Gnus beginners may find the interface bewildering.  In particular, subreddits with no unread articles do not display.  Use ``L`` to bring them out of hiding.
+
+Troubleshooting
+===============
+Clone this repo.  You must install Cask_.  Then try ``make test-run-interactive``.
 
 .. [1] Gnus users are familiar with the tragedy of ``u`` doing double duty as subscriber and unsubscriber.  ``u`` is really a toggle even though the attached command is ``gnus-group-unsubscribe-current-group`` |---| if that doesn't trigger your UX sensibility, then never mind I mentioned it.
 
