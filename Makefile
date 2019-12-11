@@ -78,6 +78,32 @@ test-venv: test-install
 	                 --eval "(require (quote nnreddit))" \
 	                 --eval "nnreddit-venv"
 
+define TESTRUN
+--eval "(custom-set-variables \
+  (quote (gnus-select-method (quote (nnreddit \"\")))) \
+  (backquote (venv-location ,(file-name-as-directory (make-temp-file \"testrun-\" t)))) \
+  (quote (gnus-verbose 8)) \
+  (quote (nnreddit-log-rpc t)))" \
+--eval "(setq debug-on-error t)" \
+--eval "(fset (quote gnus-y-or-n-p) (function ignore))"
+endef
+
+.PHONY: test-run
+test-run:
+	cask emacs -Q --batch \
+	  $(TESTRUN) \
+	  --eval "(require 'nnreddit)" \
+	  --eval "(cl-assert (nnreddit-rpc-get))" \
+	  --eval "(sleep-for 0 8000)" \
+	  -f nnreddit-dump-diagnostics \
+	  --eval "(cl-assert nnreddit-processes)"
+
+.PHONY: test-run-interactive
+test-run-interactive:
+	cask emacs -Q \
+	  $(TESTRUN) \
+	  -f gnus
+
 .PHONY: test-unit
 test-unit:
 	PYTHON=$(PYTHON) cask exec ert-runner -L . -L tests tests/test*.el

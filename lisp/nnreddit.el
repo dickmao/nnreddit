@@ -101,12 +101,12 @@ Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtab
   :group 'nnreddit)
 
 (defcustom nnreddit-venv
-  (let* ((library-directory (file-name-directory (locate-library "nnreddit")))
+  (let* ((requirements-directory (file-name-directory (locate-library "requirements.txt")))
          (defacto-version (file-name-nondirectory
-                           (directory-file-name library-directory)))
+                           (directory-file-name requirements-directory)))
          (venv-id (concat defacto-version "-" nnreddit-python-command))
          (result (concat venv-location venv-id))
-         (requirements (concat library-directory "requirements.txt"))
+         (requirements (concat requirements-directory "requirements.txt"))
          (install-args (if (file-exists-p requirements)
                            (list "-r" requirements)
                          (list "virtualenv")))
@@ -140,7 +140,7 @@ Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtab
                     venv-id
                     ;; `python` and not `nnreddit-python-command` because
                     ;; venv normalizes the executable to `python`.
-                    (format "cd %s && python setup.py install" library-directory))
+                    (format "cd %s && python setup.py install" requirements-directory))
                    (gnus-message 5 "nnreddit-venv: installing venv to %s...done" result)
                    result)
                (error (when (venv-is-valid venv-id)
@@ -320,7 +320,7 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
                (connection (json-rpc--create :process proc
                                              :host nnreddit-localhost
                                              :id-counter 0)))
-    (condition-case err
+    (condition-case-unless-debug err
         (apply #'nnreddit-rpc-request connection generator_kwargs method args)
       (error (gnus-message 3 "nnreddit-rpc-call: %s" (error-message-string err))
              nil))))
@@ -338,8 +338,9 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 (defsubst nnreddit--current-article-number ()
   "`gnus-article-current' is a global variable that gets clobbered."
   (or (cdr gnus-message-group-art)
-      (with-current-buffer gnus-summary-buffer
-        (cdr gnus-article-current))))
+      (and (gnus-buffer-live-p gnus-summary-buffer)
+           (with-current-buffer gnus-summary-buffer
+             (cdr gnus-article-current)))))
 
 (defsubst nnreddit--current-group ()
   "`gnus-article-current' is a global variable that gets clobbered."
@@ -414,8 +415,9 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 
 (deffoo nnreddit-server-opened (&optional server)
   (nnreddit--normalize-server)
-  (cl-remove-if-not (lambda (proc) (string= server (process-name proc)))
-                 nnreddit-processes))
+  (setq nnreddit-processes
+        (cl-remove-if-not (lambda (proc) (string= server (process-name proc)))
+                          nnreddit-processes)))
 
 (deffoo nnreddit-status-message (&optional server)
   (nnreddit--normalize-server)
@@ -708,48 +710,58 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
             ((string= type "text") data)
             (t (error "nnreddit--content-handler: passing on %s" content-type))))))
 
+(defmacro nnreddit--concat (thus-far &rest add)
+  "Assign to THUS-FAR the catenation of itself and ADD."
+  `(setq ,thus-far (apply #'concat ,thus-far (list ,@add))))
+
 (deffoo nnreddit-request-article (article-number &optional group server buffer)
   (nnreddit--normalize-server)
   (nnreddit--with-group group
     (with-current-buffer (or buffer nntp-server-buffer)
-      (erase-buffer)
       (let* ((header (nnreddit--get-header article-number group))
              (mail-header (nnreddit--make-header article-number))
              (score (cdr (assq 'X-Reddit-Score (mail-header-extra mail-header))))
              (permalink (cdr (assq 'X-Reddit-Permalink (mail-header-extra mail-header))))
-             (body (nnreddit--get-body (plist-get header :name) group server)))
+             (body (nnreddit--get-body (plist-get header :name) group server))
+             (at-once ""))
         (when body
-          (insert
-           "Newsgroups: " group "\n"
-           "Subject: " (mail-header-subject mail-header)  "\n"
-           "From: " (or (mail-header-from mail-header) "nobody") "\n"
-           "Date: " (mail-header-date mail-header) "\n"
-           "Message-ID: " (mail-header-id mail-header) "\n"
-           "References: " (mail-header-references mail-header) "\n"
-           "Content-Type: text/html; charset=utf-8" "\n"
-           (if permalink
-               (format "Archived-at: <https://www.reddit.com%s>\n" permalink)
-             "")
-           "Score: " score "\n"
-           "\n")
+          (nnreddit--concat at-once
+                            "Newsgroups: " group "\n"
+                            "Subject: " (mail-header-subject mail-header)  "\n"
+                            "From: " (or (mail-header-from mail-header) "nobody") "\n"
+                            "Date: " (mail-header-date mail-header) "\n"
+                            "Message-ID: " (mail-header-id mail-header) "\n"
+                            "References: " (mail-header-references mail-header) "\n"
+                            "Content-Type: text/html; charset=utf-8" "\n"
+                            (if permalink
+                                (format "Archived-at: <https://www.reddit.com%s>\n"
+                                        permalink)
+                              "")
+                            "Score: " score "\n"
+                            "\n")
           (-when-let*
               ((parent-name (plist-get header :parent_id)) ;; parent_id is full
                (parent-author (or (nnreddit--gethash parent-name nnreddit-authors-hashtb)
                                   "Someone"))
                (parent-body (nnreddit--get-body parent-name group server)))
-            (insert (nnreddit--citation-wrap parent-author parent-body)))
+            (nnreddit--concat at-once
+                              (nnreddit--citation-wrap parent-author parent-body)))
           (aif (and nnreddit-render-submission
                     (eq (plist-get header :is_self) :json-false)
                     (plist-get header :url))
               (condition-case err
                   (nnreddit--request
                    "nnreddit-request-article" it
-                   :success (lambda (&rest args)
-                              (insert (apply #'nnreddit--content-handler args))))
+                   :success
+                   (lambda (&rest args)
+                     (nnreddit--concat at-once
+                                      (apply #'nnreddit--content-handler args))))
                 (error (gnus-message 5 "nnreddit-request-article: %s %s"
                                      it (error-message-string err))
-                       (insert (nnreddit--br-tagify body))))
-            (insert (nnreddit--br-tagify body)))
+                       (nnreddit--concat at-once (nnreddit--br-tagify body))))
+            (nnreddit--concat at-once (nnreddit--br-tagify body)))
+          (erase-buffer)
+          (insert at-once)
           (cons group article-number))))))
 
 (deffoo nnreddit-retrieve-headers (article-numbers &optional group server _fetch-old)
@@ -848,6 +860,9 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
                   (car (process-command process))
                   (replace-regexp-in-string "\n$" "" event))
     (setq nnreddit-headers-hashtb (gnus-make-hashtable))
+    (setq nnreddit-processes (cl-remove-if (lambda (other) (string= (process-name process)
+                                                                    (process-name other)))
+                                           nnreddit-processes))
     (gnus-backlog-shutdown)))
 
 (defun nnreddit--message-user (server beg end _prev-len)
@@ -860,6 +875,18 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 (defsubst nnreddit--install-failed ()
   "If we can't install the virtualenv then all bets are off."
   (string= nnreddit-venv "/dev/null"))
+
+(defun nnreddit-dump-diagnostics (&optional server)
+  "Makefile recipe test-run.  SERVER is usually nnreddit-default."
+  (nnreddit--normalize-server)
+  (dolist (b `(,byte-compile-log-buffer
+               ,gnus-group-buffer
+               "*Messages*"
+               ,(format " *%s*" server)
+               ,(format " *%s-stderr*" server)))
+    (when (buffer-live-p (get-buffer b))
+      (princ (format "\nBuffer: %s\n%s\n\n" b (with-current-buffer b (buffer-string)))
+             #'external-debugging-output))))
 
 (defun nnreddit-rpc-get (&optional server)
   "Retrieve the PRAW process for SERVER."
@@ -1224,11 +1251,9 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
         (lambda (f &rest args)
           (cond ((nnreddit--gate)
                  (remove-function (symbol-function 'gnus-summary-followup) prompt-loose)
-                 (condition-case err
-                     (prog1 (apply f args)
-                       (funcall advise-gnus-summary-followup))
-                   (error (funcall advise-gnus-summary-followup)
-                          (error (error-message-string err)))))
+                 (unwind-protect
+                     (apply f args)
+                   (funcall advise-gnus-summary-followup)))
                 (t (apply f args)))))
        (advise-gnus-summary-cancel-article
         (lambda ()
@@ -1238,13 +1263,22 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
   (funcall advise-gnus-summary-followup))
 
 (add-function
+ :around (symbol-function 'message-followup)
+ (lambda (f &rest args)
+   (let ((reddit-from (and (nnreddit--gate) (message-make-from))))
+     (prog1 (apply f args)
+       (when reddit-from
+         (save-excursion
+           (message-replace-header "From" reddit-from)))))))
+
+(add-function
  :around (symbol-function 'message-supersede)
  (lambda (f &rest args)
    (cond ((nnreddit--gate)
           (add-function :override
                         (symbol-function 'mml-insert-mml-markup)
                         'ignore)
-          (condition-case err
+          (unwind-protect
               (prog1 (apply f args)
                 (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)
                 (save-excursion
@@ -1255,8 +1289,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                     (goto-char (point-max))
                     (mm-inline-text-html nil)
                     (delete-region (point-min) (point)))))
-            (error (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)
-                   (error (error-message-string err)))))
+            (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)))
          (t (apply f args)))))
 
 (add-function
@@ -1267,14 +1300,12 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                              (when (cl-search "mpty article" prompt) t)))
                  (link-p (not (null (message-fetch-field "Link"))))
                  (message-shoot-gnksa-feet (if link-p t message-shoot-gnksa-feet)))
-            (condition-case err
+            (unwind-protect
                 (progn
                   (when link-p
                     (add-function :before-until (symbol-function 'y-or-n-p) dont-ask))
-                  (prog1 (apply f args)
-                    (remove-function (symbol-function 'y-or-n-p) dont-ask)))
-              (error (remove-function (symbol-function 'y-or-n-p) dont-ask)
-                     (error (error-message-string err))))))
+                  (apply f args))
+              (remove-function (symbol-function 'y-or-n-p) dont-ask))))
          (t (apply f args)))))
 
 (add-function
@@ -1288,15 +1319,16 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                                                    link-header))
                  (remove-link-header (apply-partially #'remove-hook
                                                       'message-header-setup-hook
-                                                      link-header)))
+                                                      link-header))
+                 (reddit-from (message-make-from)))
             (cl-case nnreddit-post-type
               (?l (funcall add-link-header)))
-            (condition-case err
-                (progn
-                  (apply f args)
-                  (funcall remove-link-header))
-              (error (funcall remove-link-header)
-                     (error (error-message-string err))))))
+            (unwind-protect
+                (prog1 (apply f args)
+                  (when reddit-from
+                    (save-excursion
+                      (message-replace-header "From" reddit-from))))
+              (funcall remove-link-header))))
          (t (apply f args)))))
 
 (add-function
@@ -1324,11 +1356,9 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
        (add-function :around
                      (symbol-function 'message-fetch-field)
                      concat-func))
-     (condition-case err
-         (prog1 (apply f args)
-           (remove-function (symbol-function 'message-fetch-field) concat-func))
-       (error (remove-function (symbol-function 'message-fetch-field) concat-func)
-              (error (error-message-string err)))))))
+     (unwind-protect
+         (apply f args)
+       (remove-function (symbol-function 'message-fetch-field) concat-func)))))
 
 (add-function
  :around (symbol-function 'url-http-generic-filter)

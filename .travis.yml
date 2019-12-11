@@ -53,10 +53,11 @@ install:
   - ${PIP} -r requirements-dev.txt
 
 before_script:
-  - bash <(curl https://raw.githubusercontent.com/purcell/nix-emacs-ci/master/travis-install)
+  - bash tools/travis-install
   - emacs --version
   - sh tools/install-cask.sh
 
 script:
   - PYTHON=${PY} make test-venv
+  - PYTHON=${PY} make test-run
   - PYTHON=${PY} make test || ( ( printf "To diagnose, travis logs -i | dos2unix | sed '/^begin 644/,/^end/!d' | uudecode\n" ) && ( zip -q - tests/log/* 2>/dev/null | uuencode log.zip ) && false)
