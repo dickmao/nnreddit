@@ -53,7 +53,7 @@ install:
   - ${PIP} -r requirements-dev.txt
 
 before_script:
-  - bash <(curl https://raw.githubusercontent.com/purcell/nix-emacs-ci/master/travis-install)
+  - bash tools/travis-install
   - emacs --version
   - sh tools/install-cask.sh
 
