@@ -83,7 +83,9 @@ Gnus beginners may find the interface bewildering.  In particular, subreddits wi
 
 Troubleshooting
 ===============
-Clone this repo.  You must install Cask_.  Then try ``make test-run-interactive``.
+Clone this repo.  Then install Cask_.  Then try ``make test-run-interactive``.
+
+|
 
 .. [1] Gnus users are familiar with the tragedy of ``u`` doing double duty as subscriber and unsubscriber.  ``u`` is really a toggle even though the attached command is ``gnus-group-unsubscribe-current-group`` |---| if that doesn't trigger your UX sensibility, then never mind I mentioned it.
 

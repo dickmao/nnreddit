@@ -75,6 +75,8 @@ test-install:
 test-venv: test-install
 	$(EMACS) -Q --batch --eval "(package-initialize)" \
 	                 --eval "(custom-set-variables (quote (gnus-verbose 8)))" \
+	                 --eval "(setq debug-on-error t)" \
+	                 --eval "(require 'cl-lib)" \
 	                 --eval "(require (quote nnreddit))" \
 	                 --eval "nnreddit-venv"
 
