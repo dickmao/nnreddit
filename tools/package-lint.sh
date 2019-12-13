@@ -30,4 +30,15 @@ travis_retry cask emacs -Q --batch \
            --eval "(push (quote (\"melpa\" . \"http://melpa.org/packages/\")) \
                          package-archives)" \
            --eval "(package-refresh-contents)" \
+           --eval "(defconst package-lint--sane-prefixes \
+                     (rx \
+                      string-start \
+                      (or \
+                       \"org-dblock-write:\" \
+                       \"string-trim-right\" \
+                       \"org-babel-execute:\" \
+                       \"org-babel-prep-session:\" \
+                       \"org-babel-variable-assignments:\" \
+                       \"org-babel-default-header-args:\" \
+                       \"pcomplete/\")))" \
            -f package-lint-batch-and-exit "$1"
