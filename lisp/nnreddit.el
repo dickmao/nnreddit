@@ -61,6 +61,17 @@
 
 (nnoo-declare nnreddit)
 
+(eval-when-compile
+  (require 'subr-x)
+  (when (version< emacs-version "26.1")
+    (defsubst string-trim-right (string &optional regexp)
+      "Trim STRING of trailing string matching REGEXP.
+
+REGEXP defaults to  \"[ \\t\\n\\r]+\"."
+      (if (string-match (concat "\\(?:" (or regexp "[ \t\n\r]+") "\\)\\'") string)
+          (replace-match "" t t string)
+        string))))
+
 (defcustom nnreddit-render-submission t
   "If non-nil, follow link upon `gnus-summary-select-article'.
 
@@ -874,7 +885,9 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   (let ((string (buffer-substring beg end))
         (magic "::user::"))
     (when (string-prefix-p magic string)
-      (message "%s: %s." server (substring string (length magic))))))
+      (message "%s: %s" server (string-trim-right
+                                (substring string (length magic))
+                                "\n")))))
 
 (defsubst nnreddit--install-failed ()
   "If we can't install the virtualenv then all bets are off."
