@@ -874,7 +874,9 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   (let ((string (buffer-substring beg end))
         (magic "::user::"))
     (when (string-prefix-p magic string)
-      (message "%s: %s." server (substring string (length magic))))))
+      (message "%s: %s" server (string-trim-right
+                                (substring string (length magic))
+                                "\n")))))
 
 (defsubst nnreddit--install-failed ()
   "If we can't install the virtualenv then all bets are off."
