@@ -61,6 +61,17 @@
 
 (nnoo-declare nnreddit)
 
+(eval-when-compile
+  (require 'subr-x)
+  (when (version< emacs-version "26.1")
+    (defsubst string-trim-right (string &optional regexp)
+      "Trim STRING of trailing string matching REGEXP.
+
+REGEXP defaults to  \"[ \\t\\n\\r]+\"."
+      (if (string-match (concat "\\(?:" (or regexp "[ \t\n\r]+") "\\)\\'") string)
+          (replace-match "" t t string)
+        string))))
+
 (defcustom nnreddit-render-submission t
   "If non-nil, follow link upon `gnus-summary-select-article'.
 
