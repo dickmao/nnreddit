@@ -462,8 +462,13 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
 (defun nnreddit--get-body (name &optional group server)
   "Get full text of submission or comment NAME for GROUP at SERVER."
   (nnreddit--normalize-server)
-  (nnreddit--with-group group
-    (nnreddit-rpc-call server nil "body" group name)))
+  (if name
+      (nnreddit--with-group group
+        (nnreddit-rpc-call server nil "body" group name))
+    (gnus-message 3 "nnreddit--get-body: null name\n%s"
+                  (with-temp-buffer
+                    (backtrace)
+                    (buffer-string)))))
 
 (defsubst nnreddit-hack-name-to-id (name)
   "Get x from t1_x (NAME)."
@@ -737,7 +742,8 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
              (mail-header (nnreddit--make-header article-number))
              (score (cdr (assq 'X-Reddit-Score (mail-header-extra mail-header))))
              (permalink (cdr (assq 'X-Reddit-Permalink (mail-header-extra mail-header))))
-             (body (nnreddit--get-body (plist-get header :name) group server))
+             (body (aif (plist-get header :name)
+                       (nnreddit--get-body it group server)))
              (at-once ""))
         (when body
           (nnreddit--concat at-once
@@ -1097,7 +1103,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
   "Cannot render submission."
   (let* ((group (gnus-group-real-name (nnreddit--current-group)))
          (header (nnreddit--get-header (nnreddit--current-article-number) group))
-         (body (nnreddit--get-body (plist-get header :name) group)))
+         (body (aif (plist-get header :name) (nnreddit--get-body it group))))
     (with-current-buffer gnus-original-article-buffer
       (article-goto-body)
       (delete-region (point) (point-max))
