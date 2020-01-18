@@ -622,7 +622,7 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                           newsrc-read-ranges newsrc-read-ranges-shifted)
             (gnus-message 7 "nnreddit-request-group: mark-ranges=%s shifted-mark-ranges=%s"
                           newsrc-mark-ranges newsrc-mark-ranges-shifted)
-            (gnus-info-set-read info newsrc-read-ranges-shifted)
+            (setf (gnus-info-read info) newsrc-read-ranges-shifted)
             (gnus-info-set-marks info newsrc-mark-ranges-shifted)
             (when updated-seen-id
               (while (assq 'last-seen params)
