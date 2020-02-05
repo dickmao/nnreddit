@@ -631,6 +631,8 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                info
                (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
                t))
+            (unless (listp (gnus-info-method info))
+              (gnus-info-set-method info (gnus-group-method gnus-newsgroup-name) t))
             (gnus-set-info gnus-newsgroup-name info)
             (gnus-message 7 "nnreddit-request-group: new info=%s" info)))))
     t))
