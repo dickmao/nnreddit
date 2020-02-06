@@ -1222,8 +1222,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
   (if gnus-group-change-level-function
       (add-function :after gnus-group-change-level-function
                     #'nnreddit-update-subscription)
-    (custom-set-variables
-     '(gnus-group-change-level-function (quote nnreddit-update-subscription))))
+    (setq gnus-group-change-level-function #'nnreddit-update-subscription))
   (nnreddit-group-mode))
 
 ;; I believe I did try buffer-localizing hooks, and it wasn't sufficient
