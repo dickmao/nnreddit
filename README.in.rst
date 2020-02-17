@@ -31,6 +31,7 @@ Then
 ::
 
    M-x package-refresh-contents RET
+   M-x package-initialize RET
    M-x package-install RET nnreddit RET
 
 Alternatively, directly clone this repo and ``make install``.
