@@ -740,35 +740,35 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
   (nnreddit--normalize-server)
   (nnreddit--with-group group
     (with-current-buffer (or buffer nntp-server-buffer)
+      (erase-buffer)
       (let* ((header (nnreddit--get-header article-number group))
              (mail-header (nnreddit--make-header article-number))
              (score (cdr (assq 'X-Reddit-Score (mail-header-extra mail-header))))
              (permalink (cdr (assq 'X-Reddit-Permalink (mail-header-extra mail-header))))
              (body (aif (plist-get header :name)
-                       (nnreddit--get-body it group server)))
-             (at-once ""))
+                       (nnreddit--get-body it group server))))
         (when body
-          (nnreddit--concat at-once
-                            "Newsgroups: " group "\n"
-                            "Subject: " (mail-header-subject mail-header)  "\n"
-                            "From: " (or (mail-header-from mail-header) "nobody") "\n"
-                            "Date: " (mail-header-date mail-header) "\n"
-                            "Message-ID: " (mail-header-id mail-header) "\n"
-                            "References: " (mail-header-references mail-header) "\n"
-                            "Content-Type: text/html; charset=utf-8" "\n"
-                            (if permalink
-                                (format "Archived-at: <https://www.reddit.com%s>\n"
-                                        permalink)
-                              "")
-                            "Score: " score "\n"
-                            "\n")
+          (insert
+           "Newsgroups: " group "\n"
+           "Subject: " (mail-header-subject mail-header)  "\n"
+           "From: " (or (mail-header-from mail-header) "nobody") "\n"
+           "Date: " (mail-header-date mail-header) "\n"
+           "Message-ID: " (mail-header-id mail-header) "\n"
+           "References: " (mail-header-references mail-header) "\n"
+           (if permalink
+               (format "Archived-at: <https://www.reddit.com%s>\n"
+                       permalink)
+             "")
+           "Score: " score "\n"
+           "\n")
+          (mml-insert-multipart "alternative")
+          (mml-insert-part "text/html")
           (-when-let*
               ((parent-name (plist-get header :parent_id)) ;; parent_id is full
                (parent-author (or (nnreddit--gethash parent-name nnreddit-authors-hashtb)
                                   "Someone"))
                (parent-body (nnreddit--get-body parent-name group server)))
-            (nnreddit--concat at-once
-                              (nnreddit--citation-wrap parent-author parent-body)))
+            (insert (nnreddit--citation-wrap parent-author parent-body)))
           (aif (and nnreddit-render-submission
                     (eq (plist-get header :is_self) :json-false)
                     (plist-get header :url))
@@ -777,14 +777,16 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
                    "nnreddit-request-article" it
                    :success
                    (lambda (&rest args)
-                     (nnreddit--concat at-once
-                                      (apply #'nnreddit--content-handler args))))
+                     (insert (apply #'nnreddit--content-handler args))))
                 (error (gnus-message 5 "nnreddit-request-article: %s %s"
                                      it (error-message-string err))
-                       (nnreddit--concat at-once (nnreddit--br-tagify body))))
-            (nnreddit--concat at-once (nnreddit--br-tagify body)))
-          (erase-buffer)
-          (insert at-once)
+                       (insert (nnreddit--br-tagify body))))
+            (insert (nnreddit--br-tagify body)))
+          (insert "\n")
+          (if (mml-validate)
+              (message-encode-message-body)
+            (gnus-message 2 "nnreddit-request-article: Invalid mml:\n%s"
+                          (buffer-string)))
           (cons group article-number))))))
 
 (deffoo nnreddit-retrieve-headers (article-numbers &optional group server _fetch-old)
