@@ -762,7 +762,10 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
            "Score: " score "\n"
            "\n")
           (mml-insert-multipart "alternative")
-          (mml-insert-part "text/html")
+          (mml-insert-tag 'part 'type "text/html"
+                          'disposition "inline"
+                          'charset "utf-8")
+          (save-excursion (mml-insert-tag '/part))
           (-when-let*
               ((parent-name (plist-get header :parent_id)) ;; parent_id is full
                (parent-author (or (nnreddit--gethash parent-name nnreddit-authors-hashtb)
