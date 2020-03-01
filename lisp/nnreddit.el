@@ -72,6 +72,11 @@ REGEXP defaults to  \"[ \\t\\n\\r]+\"."
           (replace-match "" t t string)
         string))))
 
+(defcustom nnreddit-max-render-bytes 300e3
+  "`quoted-printable-encode-region' bogs when the javascript spyware gets out of hand."
+  :type 'integer
+  :group 'nnreddit)
+
 (defcustom nnreddit-render-submission t
   "If non-nil, follow link upon `gnus-summary-select-article'.
 
@@ -781,7 +786,7 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
                    :success
                    (lambda (&rest args)
                      (let ((data (apply #'nnreddit--content-handler args)))
-                       (if (> (length data) 1e6)
+                       (if (> (length data) nnreddit-max-render-bytes)
                            (insert (nnreddit--br-tagify body))
                          (insert data)))))
                 (error (gnus-message 5 "nnreddit-request-article: %s %s"
