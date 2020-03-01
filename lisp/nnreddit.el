@@ -780,7 +780,10 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
                    "nnreddit-request-article" it
                    :success
                    (lambda (&rest args)
-                     (insert (apply #'nnreddit--content-handler args))))
+                     (let ((data (apply #'nnreddit--content-handler args)))
+                       (if (> (length data) 1e6)
+                           (insert (nnreddit--br-tagify body))
+                         (insert data)))))
                 (error (gnus-message 5 "nnreddit-request-article: %s %s"
                                      it (error-message-string err))
                        (insert (nnreddit--br-tagify body))))
