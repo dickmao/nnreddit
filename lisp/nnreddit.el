@@ -1114,6 +1114,46 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
           result)
     result))
 
+(defun nnreddit-sort-by-number-of-articles-in-thread (t1 t2)
+  "Whichever of the T1 or T2 has the most articles."
+  (> (gnus-summary-number-of-articles-in-thread t1)
+     (gnus-summary-number-of-articles-in-thread t2)))
+
+(defun nnreddit-gather-threads-by-references (threads)
+  "Gather THREADS by root reference, and don't be incomprehensible or buggy.
+The built-in `gnus-gather-threads-by-references' is both."
+  (cl-flet ((special-case
+	     (thread)
+	     (let ((header (cl-first thread)))
+	       (if (stringp header)
+		   thread
+		 (list (mail-header-subject header) thread))))
+	    (has-refs
+	     (thread)
+	     (let ((header (cl-first thread)))
+	       (gnus-split-references (mail-header-references header)))))
+    (let ((threads-by-ref (gnus-make-hashtable))
+	  (separated (-separate #'has-refs threads))
+	  result)
+      (dolist (thread (cl-second separated))
+	(let* ((header (cl-first thread))
+	       (id (mail-header-id header))
+	       (thread-special (special-case thread)))
+	  (push thread-special result)
+	  (nnreddit--sethash id thread-special threads-by-ref)))
+      (dolist (thread (cl-first separated))
+	(let* ((header (cl-first thread))
+	       (refs (gnus-split-references (mail-header-references header)))
+	       (ref-thread (cl-some (lambda (ref)
+				      (nnreddit--gethash ref threads-by-ref))
+				    refs)))
+	  (if ref-thread
+	      (setcdr ref-thread (nconc (cdr ref-thread) (list thread)))
+	    (setq ref-thread (special-case thread))
+	    (push ref-thread result)
+	    (nnreddit--sethash (car refs) ref-thread threads-by-ref))))
+      (nreverse result))))
+
 (defsubst nnreddit--fallback-link ()
   "Cannot render submission."
   (let* ((group (gnus-group-real-name (nnreddit--current-group)))
@@ -1212,6 +1252,10 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
    (gnus-auto-extend-newsgroup nil)
    (gnus-add-timestamp-to-message t)
    (gnus-summary-line-format "%3t%U%R%uS %I%(%*%-10,10f  %s%)\n")
+   (gnus-thread-sort-functions (quote (nnreddit-sort-by-number-of-articles-in-thread)))
+   (gnus-summary-thread-gathering-function
+    (quote nnreddit-gather-threads-by-references))
+   (gnus-subthread-sort-functions (quote (gnus-thread-sort-by-number)))
    (gnus-summary-display-article-function
     (quote ,(symbol-function 'nnreddit--display-article)))
    (gnus-header-button-alist
