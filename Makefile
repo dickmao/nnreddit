@@ -3,14 +3,14 @@ PYTHON ?= python
 SRC=$(shell cask files)
 PKBUILD=2.3
 ELCFILES = $(SRC:.el=.elc)
-ifeq ($(TRAVIS_PULL_REQUEST_SLUG),)
-TRAVIS_PULL_REQUEST_SLUG := $(shell git config --global user.name)/$(shell basename `git rev-parse --show-toplevel`)
+ifeq ($(GITHUB_REPOSITORY),)
+GITHUB_REPOSITORY := $(shell git config user.name)/$(shell basename `git rev-parse --show-toplevel`)
 endif
-ifeq ($(TRAVIS_PULL_REQUEST_BRANCH),)
-TRAVIS_PULL_REQUEST_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+ifeq ($(GITHUB_HEAD_REF),)
+GITHUB_HEAD_REF := $(shell git rev-parse --abbrev-ref HEAD)
 endif
-ifeq ($(TRAVIS_PULL_REQUEST_SHA),)
-TRAVIS_PULL_REQUEST_SHA := $(shell if git show-ref --quiet --verify origin/$(TRAVIS_PULL_REQUEST_BRANCH) ; then git rev-parse origin/$(TRAVIS_PULL_REQUEST_BRANCH) ; fi))
+ifeq ($(GITHUB_SHA),)
+GITHUB_SHA := $(shell if git show-ref --quiet --verify origin/$(GITHUB_HEAD_REF) ; then git rev-parse origin/$(GITHUB_HEAD_REF) ; fi))
 endif
 
 .DEFAULT_GOAL := test-compile
@@ -20,12 +20,10 @@ autoloads:
 	$(EMACS) -Q --batch --eval "(package-initialize)" --eval "(package-generate-autoloads \"nnreddit\" \"./lisp\")"
 
 README.rst: README.in.rst lisp/nnreddit.el
-	sed "/CI VERSION/c"`grep -o 'emacs-[0-9][.0-9]*' .travis.yml | sort -n | head -1 | grep -o '[.0-9]*'` README.in.rst > README.rst0
 	grep ';;' lisp/nnreddit.el \
 	    | awk '/;;;\s*Commentary/{within=1;next}/;;;\s*/{within=0}within' \
 	    | sed -e 's/^\s*;;*\s*//g' \
-	    | tools/readme-sed.sh "COMMENTARY" README.rst0 > README.rst
-	rm -f README.rst0 README.rst1
+	    | tools/readme-sed.sh "COMMENTARY" README.in.rst > README.rst
 
 .PHONY: clean
 clean:
@@ -62,9 +60,9 @@ test-install:
 	--eval "(setq rcp (package-recipe-lookup \"nnreddit\"))" \
 	--eval "(unless (file-exists-p package-build-archive-dir) \
 	           (make-directory package-build-archive-dir))" \
-	--eval "(let* ((my-repo \"$(TRAVIS_PULL_REQUEST_SLUG)\") \
-	               (my-branch \"$(TRAVIS_PULL_REQUEST_BRANCH)\") \
-	               (my-commit \"$(TRAVIS_PULL_REQUEST_SHA)\")) \
+	--eval "(let* ((my-repo \"$(GITHUB_REPOSITORY)\") \
+	               (my-branch \"$(GITHUB_HEAD_REF)\") \
+	               (my-commit \"$(GITHUB_SHA)\")) \
 	           (oset rcp :repo my-repo) \
 	           (oset rcp :branch my-branch) \
 	           (oset rcp :commit my-commit))" \

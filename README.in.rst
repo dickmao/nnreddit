@@ -91,3 +91,4 @@ Clone this repo.  Then install Cask_.  Then try ``make test-run-interactive``.
 
 .. _Cask: https://cask.readthedocs.io/en/latest/guide/installation.html
 .. _Getting started: http://melpa.org/#/getting-started
+.. _virtualenv: https://virtualenv.pypa.io/en/stable
