@@ -1253,8 +1253,6 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
    (gnus-add-timestamp-to-message t)
    (gnus-summary-line-format "%3t%U%R%uS %I%(%*%-10,10f  %s%)\n")
    (gnus-thread-sort-functions (quote (nnreddit-sort-by-number-of-articles-in-thread)))
-   (gnus-summary-thread-gathering-function
-    (quote nnreddit-gather-threads-by-references))
    (gnus-subthread-sort-functions (quote (gnus-thread-sort-by-number)))
    (gnus-summary-display-article-function
     (quote ,(symbol-function 'nnreddit--display-article)))
