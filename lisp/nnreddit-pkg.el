@@ -3,7 +3,7 @@
   "Gnus Backend For Reddit"
   '((emacs "25")
     (virtualenvwrapper "20190223")
-    (json-rpc "20180104")
+    (json-rpc "20200417")
     (dash "20190401")
     (anaphora "20180618")
     (request "20190819"))
