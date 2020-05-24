@@ -134,7 +134,7 @@ Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtab
          (defacto-version (file-name-nondirectory
                            (directory-file-name requirements-directory)))
          (venv-id (concat defacto-version "-" nnreddit-python-command))
-         (result (concat venv-location venv-id))
+         (result (concat (file-name-as-directory venv-location) venv-id))
          (requirements (concat requirements-directory "requirements.txt"))
          (install-args (if (file-exists-p requirements)
                            (list "-r" requirements)
