@@ -63,6 +63,8 @@
 
 (eval-when-compile
   (require 'subr-x)
+  (unless (fboundp 'libxml-parse-xml-region)
+    (display-warning 'nnreddit "nnreddit requires libxml support"))
   (when (version< emacs-version "26.1")
     (defsubst string-trim-right (string &optional regexp)
       "Trim STRING of trailing string matching REGEXP.
