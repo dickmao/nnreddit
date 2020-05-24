@@ -3,8 +3,8 @@
 A Gnus backend for Reddit.
 
 .. |build-status|
-   image:: https://travis-ci.com/dickmao/nnreddit.svg?branch=master
-   :target: https://travis-ci.com/dickmao/nnreddit
+   image:: https://github.com/dickmao/nnreddit/workflows/CI/badge.svg?branch=dev
+   :target: https://github.com/dickmao/nnreddit/actions
    :alt: Build Status
 .. |melpa-dev|
    image:: https://melpa.org/packages/nnreddit-badge.svg
@@ -22,6 +22,8 @@ A Gnus backend for Reddit.
 
 Install
 =======
+**To stay apace with the** PRAW_ **backend, as of 24 May 2020, nnreddit no longer supports python2.**  If your system keeps python 3.x in a separate alias such as ``python3``, you should ``M-x customize-variable RET nnreddit-python-command`` to it.
+
 As described in `Getting started`_, ensure melpa's whereabouts in ``init.el`` or ``.emacs``::
 
    (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
@@ -34,8 +36,6 @@ Then
    M-x package-install RET nnreddit RET
 
 Alternatively, directly clone this repo and ``make install``.
-
-Upon first use, ``nnreddit`` will self-install its ``requirements.txt`` which currently consists only of ``virtualenv``.  You can forestall a potential install bug by ensuring your python installation already contains ``virtualenv``.
 
 Also see Troubleshooting_.
 
@@ -89,6 +89,8 @@ Clone this repo.  Then install Cask_.  Then try ``make test-run-interactive``.
 
 .. [1] Gnus users are familiar with the tragedy of ``u`` doing double duty as subscriber and unsubscriber.  ``u`` is really a toggle even though the attached command is ``gnus-group-unsubscribe-current-group`` |---| if that doesn't trigger your UX sensibility, then never mind I mentioned it.
 
+.. _walkthrough: https://github.com/dickmao/gnus-imap-walkthrough
 .. _Cask: https://cask.readthedocs.io/en/latest/guide/installation.html
 .. _Getting started: http://melpa.org/#/getting-started
 .. _virtualenv: https://virtualenv.pypa.io/en/stable
+.. _PRAW: https://github.com/praw-dev/praw/pull/1094

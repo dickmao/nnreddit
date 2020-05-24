@@ -1,5 +1,8 @@
 EMACS ?= $(shell which emacs)
-PYTHON ?= python
+export PYTHON ?= python
+ifeq ($(shell expr $$($(PYTHON) --version 2>&1 | cut -d' ' -f2) \< 3),1)
+$(error Set PYTHON to python3)
+endif
 SRC=$(shell cask files)
 PKBUILD=2.3
 ELCFILES = $(SRC:.el=.elc)
@@ -35,7 +38,8 @@ clean:
 
 .PHONY: test-compile
 test-compile: autoloads
-	pylint nnreddit
+	$(PYTHON) -m pip -q install --user pylint pytest
+	pylint nnreddit --rcfile=nnreddit/pylintrc
 	cask install
 	sh -e tools/package-lint.sh lisp/nnreddit.el
 	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | egrep -a "(Warning|Error):")
@@ -111,6 +115,7 @@ test: test-compile test-unit test-int
 
 .PHONY: test-int
 test-int:
+	$(PYTHON) -m pip -q install --user -r requirements-dev.txt
 	$(PYTHON) -m pytest tests/test_oauth.py
 	rm -f tests/.newsrc.eld
 	PYTHON=$(PYTHON) cask exec ecukes --debug --reporter magnars

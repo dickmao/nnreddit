@@ -110,10 +110,19 @@ Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtab
   "Python executable name."
   :type (append '(choice)
                 (let (result)
-                  (dolist (py '("python" "python2" "python3" "pythonw" "py")
+                  (dolist (py '("python" "python3" "pythonw" "py")
                               result)
                     (setq result (append result `((const :tag ,py ,py))))))
                 '((string :tag "Other")))
+  :set (lambda (symbol value)
+	 (set-default symbol value)
+	 (unless (string-match-p
+		  "\\b3"
+		  (shell-command-to-string (format "%s --version" value)))
+	   ;; emacs's arcane custom infra swallows `error' here
+	   (display-warning 'nnreddit
+			    "nnreddit-python-command: must customize to python 3.x"
+			    :error)))
   :group 'nnreddit)
 
 (defcustom nnreddit-venv

@@ -38,9 +38,9 @@ if testing:
     from tests.recorded import recording_begin
     from tests.recorded import recording_end
 else:
-    def recording_begin(*args):
+    def recording_begin(*_args):
         pass
-    def recording_end(*args):
+    def recording_end(*_args):
         pass
     def recorded(func):
         """Intercept point for Betamax"""
@@ -194,39 +194,39 @@ class AuthenticatedReddit(Reddit):
         self.subreddit(display_name).submit(title, **kwargs)
 
     def reply(self, name, body, q_reply_root):
-        (type, id) = name.split("_", 1)
+        (mytype, myid) = name.split("_", 1)
         parent = None
-        if type == self.config.kinds['submission']:
-            parent = self.submission(id)
-        elif type == self.config.kinds['comment']:
-            parent = self.comment(id)
+        if mytype == self.config.kinds['submission']:
+            parent = self.submission(myid)
+        elif mytype == self.config.kinds['comment']:
+            parent = self.comment(myid)
             if q_reply_root and parent.link_id:
                 (_, root_id) = parent.link_id.split("_", 1)
                 parent = self.submission(root_id)
         else:
-            raise ValueError('Unexpected name {} with type {}'.format(name, type))
+            raise ValueError('Unexpected name {} with type {}'.format(name, mytype))
         parent.reply(body)
 
     def edit(self, name, body):
-        (type, id) = name.split("_", 1)
+        (mytype, myid) = name.split("_", 1)
         editable = None
-        if type == self.config.kinds['submission']:
-            editable = self.submission(id)
-        elif type == self.config.kinds['comment']:
-            editable = self.comment(id)
+        if mytype == self.config.kinds['submission']:
+            editable = self.submission(myid)
+        elif mytype == self.config.kinds['comment']:
+            editable = self.comment(myid)
         else:
-            raise ValueError('Unexpected name {} with type {}'.format(name, type))
+            raise ValueError('Unexpected name {} with type {}'.format(name, mytype))
         editable.edit(body)
 
     def delete(self, name):
-        (type, id) = name.split("_", 1)
+        (mytype, myid) = name.split("_", 1)
         editable = None
-        if type == self.config.kinds['submission']:
-            editable = self.submission(id)
-        elif type == self.config.kinds['comment']:
-            editable = self.comment(id)
+        if mytype == self.config.kinds['submission']:
+            editable = self.submission(myid)
+        elif mytype == self.config.kinds['comment']:
+            editable = self.comment(myid)
         else:
-            raise ValueError('Unexpected name {} with type {}'.format(name, type))
+            raise ValueError('Unexpected name {} with type {}'.format(name, mytype))
         editable.delete()
 
     def comments(self, display_name):
@@ -247,14 +247,14 @@ class AuthenticatedReddit(Reddit):
         return dicts
 
     def vote(self, name, vote):
-        (type, id) = name.split("_", 1)
+        (mytype, myid) = name.split("_", 1)
         votable = None
-        if type == self.config.kinds['submission']:
-            votable = self.submission(id)
-        elif type == self.config.kinds['comment']:
-            votable = self.comment(id)
+        if mytype == self.config.kinds['submission']:
+            votable = self.submission(myid)
+        elif mytype == self.config.kinds['comment']:
+            votable = self.comment(myid)
         else:
-            raise ValueError('Unexpected name {} with type {}'.format(name, type))
+            raise ValueError('Unexpected name {} with type {}'.format(name, mytype))
         try:
             if vote == 0:
                 votable.clear_vote()
@@ -264,20 +264,19 @@ class AuthenticatedReddit(Reddit):
                 votable.upvote()
         except AttributeError as e:
             raise AttributeError('{} un-votable: {}'.format(name, str(e)))
-        return
 
     def body(self, display_name, name):
-        (type, id) = name.split("_", 1)
+        (mytype, myid) = name.split("_", 1)
 
         result = None
         cached = self._bodies.get(display_name)
         if cached:
-            result = cached.get(id)
+            result = cached.get(myid)
         if not result:
-            if type == self.config.kinds['submission']:
-                result = self.submission(id).selftext_html
+            if mytype == self.config.kinds['submission']:
+                result = self.submission(myid).selftext_html
             else:
-                result = self.comment(id).body_html
+                result = self.comment(myid).body_html
         return result
 
     def canonical_spelling(self, display_name):

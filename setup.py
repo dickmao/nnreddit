@@ -22,7 +22,7 @@ setup(
     install_requires=[
         "jsonrpyc>=1.1.0",
         "rtv>=1.26.0",
-        "praw<=6.3.1",
-#        "praw>=6.2",
+#        "praw<=6.3.1",
+        "praw>=6.2",
     ],
 )
