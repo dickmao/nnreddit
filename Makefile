@@ -6,15 +6,6 @@ endif
 SRC=$(shell cask files)
 PKBUILD=2.3
 ELCFILES = $(SRC:.el=.elc)
-ifeq ($(GITHUB_REPOSITORY),)
-GITHUB_REPOSITORY := $(shell git config user.name)/$(shell basename `git rev-parse --show-toplevel`)
-endif
-ifeq ($(GITHUB_HEAD_REF),)
-GITHUB_HEAD_REF := $(shell git rev-parse --abbrev-ref HEAD)
-endif
-ifeq ($(GITHUB_SHA),)
-GITHUB_SHA := $(shell if git show-ref --quiet --verify origin/$(GITHUB_HEAD_REF) ; then git rev-parse origin/$(GITHUB_HEAD_REF) ; fi))
-endif
 
 .DEFAULT_GOAL := test-compile
 
@@ -45,8 +36,33 @@ test-compile: autoloads
 	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | egrep -a "(Warning|Error):")
 	cask clean-elc
 
+define SET_GITHUB_REPOSITORY =
+ifeq ($(GITHUB_REPOSITORY),)
+	GITHUB_REPOSITORY := $(shell git config user.name)/$(shell basename `git rev-parse --show-toplevel`)
+endif
+endef
+
+define SET_GITHUB_HEAD_REF =
+ifeq ($(GITHUB_HEAD_REF),)
+GITHUB_HEAD_REF := $(shell git rev-parse --abbrev-ref HEAD)
+endif
+endef
+
+define SET_GITHUB_SHA =
+ifeq ($(GITHUB_SHA),)
+GITHUB_SHA := $(shell if git show-ref --quiet --verify origin/$(GITHUB_HEAD_REF) ; then git rev-parse origin/$(GITHUB_HEAD_REF) ; fi)
+endif
+endef
+
+.PHONY: test-install-vars
+test-install-vars:
+	$(eval $(call SET_GITHUB_REPOSITORY))
+	$(eval $(call SET_GITHUB_HEAD_REF))
+	$(eval $(call SET_GITHUB_SHA))
+	@true
+
 .PHONY: test-install
-test-install:
+test-install: test-install-vars
 	mkdir -p tests/test-install
 	if [ ! -s "tests/test-install/$(PKBUILD).tar.gz" ] ; then \
 	  cd tests/test-install ; curl -sLOk https://github.com/melpa/package-build/archive/$(PKBUILD).tar.gz ; fi
