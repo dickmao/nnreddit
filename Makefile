@@ -30,7 +30,7 @@ clean:
 .PHONY: test-compile
 test-compile: autoloads
 	$(PYTHON) -m pip -q install --user pylint pytest
-	pylint nnreddit --rcfile=nnreddit/pylintrc
+	$(PYTHON) -m pylint nnreddit --rcfile=nnreddit/pylintrc
 	cask install
 	sh -e tools/package-lint.sh lisp/nnreddit.el
 	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | egrep -a "(Warning|Error):")
