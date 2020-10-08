@@ -597,16 +597,15 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
                           (zerop (nnreddit--base10 newsrc-seen-id)))
                       1
                     (cl-loop with cand
-                             for plst in headers
-                             for i = 1 then (1+ i)
+                             for plst in (reverse headers)
+                             for i = (length headers) then (1- i)
                              if (= (nnreddit--base10 (plist-get plst :id))
                                    (nnreddit--base10 newsrc-seen-id))
                              do (gnus-message 7 "nnreddit-request-group: exact=%s" i)
                              and return i ;; do not go to finally
                              end
-                             if (and (null cand)
-                                     (> (nnreddit--base10 (plist-get plst :id))
-                                        (nnreddit--base10 newsrc-seen-id)))
+                             if (> (nnreddit--base10 (plist-get plst :id))
+                                   (nnreddit--base10 newsrc-seen-id))
                              do (gnus-message 7 "nnreddit-request-group: cand=%s" (setq cand i))
                              end
                              finally return (or cand 0))))
