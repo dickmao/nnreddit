@@ -98,7 +98,7 @@ class AuthenticatedReddit(Reddit):
         cfg.config['refresh_token'] = cfg.refresh_token
         logging.getLogger().debug("Refresh token: %s", cfg.token_file)
 
-        super(AuthenticatedReddit, self).__init__(**cfg.config)
+        super().__init__(**cfg.config)
 
         if not cfg.refresh_token:
             self._core \
@@ -175,7 +175,7 @@ class AuthenticatedReddit(Reddit):
         return True
 
     def random_subreddit(self, nsfw=False):
-        sr = super(AuthenticatedReddit, self).random_subreddit(nsfw)
+        sr = super().random_subreddit(nsfw)
         return sr.display_name
 
     def search(self, query, **generator_kwargs):
@@ -263,7 +263,7 @@ class AuthenticatedReddit(Reddit):
             else:
                 votable.upvote()
         except AttributeError as e:
-            raise AttributeError('{} un-votable: {}'.format(name, str(e)))
+            raise AttributeError('{} un-votable: {}'.format(name, str(e))) from e
 
     def body(self, display_name, name):
         (mytype, myid) = name.split("_", 1)

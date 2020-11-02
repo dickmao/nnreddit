@@ -74,6 +74,9 @@ REGEXP defaults to  \"[ \\t\\n\\r]+\"."
           (replace-match "" t t string)
         string))))
 
+(defgroup nnreddit nil "A Gnus backend for Reddit."
+  :group 'gnus)
+
 (defcustom nnreddit-max-render-bytes 300e3
   "`quoted-printable-encode-region' bogs when the javascript spyware gets out of hand."
   :type 'integer
