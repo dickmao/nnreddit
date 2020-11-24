@@ -16,9 +16,7 @@
    :alt: MELPA stable version
 
 .. image:: https://github.com/dickmao/gnus-imap-walkthrough/blob/master/thumbnail.png
-   :height: 350px
-   :width: 197px
-   :target: https://youtu.be/T43H5sQvi18
+   :target: https://youtu.be/DMpZtC98F_M
    :alt: Replacing Thunderbird With Gnus
 
 .. image:: screenshot.png
