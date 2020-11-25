@@ -137,7 +137,9 @@ test-int:
 	$(PYTHON) -m pip -q install --user -r requirements-dev.txt
 	$(PYTHON) -m pytest tests/test_oauth.py
 	rm -f tests/.newsrc.eld
-	PYTHON=$(PYTHON) cask exec ecukes --debug --reporter magnars
+	PYTHON=$(PYTHON) cask exec ecukes --debug --reporter magnars --tags "~@inbox"
+	rm -f tests/.newsrc.eld
+	PYTHON=$(PYTHON) cask exec ecukes --debug --reporter magnars --tags "@inbox"
 
 .PHONY: dist-clean
 dist-clean:
