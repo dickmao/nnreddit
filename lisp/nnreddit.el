@@ -3,7 +3,6 @@
 ;; Copyright (C) 2019 The Authors of nnreddit.el
 
 ;; Authors: dickmao <github id: dickmao>
-;; Version: 0
 ;; Keywords: news
 ;; URL: https://github.com/dickmao/nnreddit
 ;; Package-Requires: ((emacs "25.1"))
@@ -76,6 +75,8 @@ REGEXP defaults to  \"[ \\t\\n\\r]+\"."
 
 (defgroup nnreddit nil "A Gnus backend for Reddit."
   :group 'gnus)
+
+(defvar nnreddit--whoami nil "To populate with reddit login.")
 
 (defcustom nnreddit-max-render-bytes 300e3
   "`quoted-printable-encode-region' bogs when the javascript spyware gets out of hand."
@@ -334,8 +335,8 @@ Normalize it to \"nnreddit-default\"."
 (defsubst nnreddit-sort-append-headers (group &rest lvp)
   "Append to hashed headers of GROUP the LVP (list of vector of plists)."
   (nnreddit--sethash group (nconc (nnreddit-get-headers group)
-                              (apply #'nnreddit--sort-headers lvp))
-                nnreddit-headers-hashtb))
+                                  (apply #'nnreddit--sort-headers lvp))
+                     nnreddit-headers-hashtb))
 
 (defvar nnreddit-directory (nnheader-concat gnus-directory "reddit")
   "Where to retrieve last read state.")
@@ -358,6 +359,26 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
         (apply #'nnreddit-rpc-request connection generator_kwargs method args)
       (error (gnus-message 3 "nnreddit-rpc-call: %s" (error-message-string err))
              nil))))
+
+(defsubst nnreddit--populate-whoami ()
+  "Get login name from PRAW user_attr."
+  (unless nnreddit--whoami
+    (setq nnreddit--whoami
+          (aand (nnreddit-rpc-call nil nil "user_attr" "name")
+                (and (stringp it) (not (zerop (length it))) it))))
+  nnreddit--whoami)
+
+(defvar nnreddit--current-feature)
+(defmacro nnreddit--test-supports-inbox (&rest body)
+  "Run BODY if not testing or testfile later than 20201124."
+  `(when (or (not (boundp 'nnreddit--current-feature))
+             (>= (string-to-number nnreddit--current-feature) 20201124))
+     ,@body))
+
+(defun nnreddit--inbox-realname ()
+  "Return /u/[nnreddit--whoami]."
+  (nnreddit--test-supports-inbox (nnreddit--populate-whoami))
+  (when (stringp nnreddit--whoami) (concat "/u/" nnreddit--whoami)))
 
 (defun nnreddit-goto-group (realname)
   "Jump to the REALNAME subreddit."
@@ -578,101 +599,110 @@ Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet
            (newsrc-mark-ranges (gnus-info-marks info))
            (newsrc-seen-cons (gnus-group-parameter-value params 'last-seen t))
            (newsrc-seen-index (car newsrc-seen-cons))
-           (newsrc-seen-id (cdr newsrc-seen-cons)))
-      (let* ((headers (nnreddit-get-headers group))
-             (num-headers (length headers))
-             (status (format "211 %d %d %d %s" num-headers 1 num-headers group)))
-        (gnus-message 7 "nnreddit-request-group: %s" status)
-        (nnheader-insert "%s\n" status)
+           (newsrc-seen-id (cdr newsrc-seen-cons))
+           (headers (nnreddit-get-headers group))
+           (num-headers (length headers))
+           (status (format "211 %d %d %d %s" num-headers 1 num-headers group)))
+      (gnus-message 7 "nnreddit-request-group: %s" status)
+      (nnheader-insert "%s\n" status)
 
-        ;; remind myself how this works:
-        ;; old-praw (1 - 20=emkdjrx)
-        ;; read-ranges (1 - 10)                   (15 - 20)
-        ;; unread-ranges       (11, 12, 13, 14)
-        ;; new-praw    (12 13 14 15 16 17 18 19 20 - 100)
-        ;; 20=emkdjrx in old-praw is 9=emkdjrx in new-praw.  index shift is 20-9=+11
-        ;; new-unread-ranges   (0,  1,   2,  3)
-        ;; new-read-ranges                        (4 - 9)
-        (when (gnus-group-entry gnus-newsgroup-name)
-          ;; seen-indices are one-indexed !
-          (let* ((newsrc-seen-index-now
-                  (if (or (not (stringp newsrc-seen-id))
-                          (zerop (nnreddit--base10 newsrc-seen-id)))
-                      1
-                    (cl-loop with cand
-                             for plst in (reverse headers)
-                             for i = (length headers) then (1- i)
-                             if (= (nnreddit--base10 (plist-get plst :id))
-                                   (nnreddit--base10 newsrc-seen-id))
-                             do (gnus-message 7 "nnreddit-request-group: exact=%s" i)
-                             and return i ;; do not go to finally
-                             end
-                             if (> (nnreddit--base10 (plist-get plst :id))
-                                   (nnreddit--base10 newsrc-seen-id))
-                             do (gnus-message 7 "nnreddit-request-group: cand=%s" (setq cand i))
-                             end
-                             finally return (or cand 0))))
-                 (updated-seen-index (- num-headers
-                                        (aif
-                                            (seq-position (reverse headers) nil
-                                                          (lambda (plst _e)
-                                                            (not (plist-get plst :title))))
-                                            it -1)))
-                 (updated-seen-id (aif (nth (1- updated-seen-index) headers)
-                                      (plist-get it :id) nil))
-                 (delta (if newsrc-seen-index
-                            (max 0 (- newsrc-seen-index newsrc-seen-index-now))
-                          0))
-                 (newsrc-read-ranges-shifted
-                  (nnreddit--shift-ranges delta newsrc-read-ranges))
-                 (newsrc-mark-ranges-shifted
-                  (mapcar (lambda (what-ranges)
-                            (cl-case (car what-ranges)
-                              ('seen `(seen (1 . ,num-headers)))
-                              (t (cons (car what-ranges)
-                                       (nnreddit--shift-ranges delta (cdr what-ranges))))))
-                          newsrc-mark-ranges)))
-            (gnus-message 7 "nnreddit-request-group: seen-id=%s          seen-index=%s -> %s"
-                          newsrc-seen-id newsrc-seen-index newsrc-seen-index-now)
-            (gnus-message 7 "nnreddit-request-group: seen-id-to-be=%s seen-index-to-be=%s delta=%d"
-                          updated-seen-id updated-seen-index delta)
-            (gnus-message 7 "nnreddit-request-group: read-ranges=%s shifted-read-ranges=%s"
-                          newsrc-read-ranges newsrc-read-ranges-shifted)
-            (gnus-message 7 "nnreddit-request-group: mark-ranges=%s shifted-mark-ranges=%s"
-                          newsrc-mark-ranges newsrc-mark-ranges-shifted)
-            (setf (gnus-info-read info) newsrc-read-ranges-shifted)
-            (gnus-info-set-marks info newsrc-mark-ranges-shifted)
-            (when updated-seen-id
-              (while (assq 'last-seen params)
-                (gnus-alist-pull 'last-seen params))
-              (gnus-info-set-params
-               info
-               (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
-               t))
-            (unless (listp (gnus-info-method info))
-              (gnus-info-set-method info (gnus-group-method gnus-newsgroup-name) t))
-            (gnus-set-info gnus-newsgroup-name info)
-            (gnus-message 7 "nnreddit-request-group: new info=%s" info)))))
+      ;; remind myself how this works:
+      ;; old-praw (1 - 20=emkdjrx)
+      ;; read-ranges (1 - 10)                   (15 - 20)
+      ;; unread-ranges       (11, 12, 13, 14)
+      ;; new-praw    (12 13 14 15 16 17 18 19 20 - 100)
+      ;; 20=emkdjrx in old-praw is 9=emkdjrx in new-praw.  index shift is 20-9=+11
+      ;; new-unread-ranges   (0,  1,   2,  3)
+      ;; new-read-ranges                        (4 - 9)
+      (when (gnus-group-entry gnus-newsgroup-name)
+        ;; seen-indices are one-indexed !
+        (let* ((newsrc-seen-index-now
+                (if (or (not (stringp newsrc-seen-id))
+                        (zerop (nnreddit--base10 newsrc-seen-id)))
+                    1
+                  (cl-loop with cand
+                           for plst in (reverse headers)
+                           for i = (length headers) then (1- i)
+                           if (= (nnreddit--base10 (plist-get plst :id))
+                                 (nnreddit--base10 newsrc-seen-id))
+                           do (gnus-message 7 "nnreddit-request-group: exact=%s" i)
+                           and return i ;; do not go to finally
+                           end
+                           if (> (nnreddit--base10 (plist-get plst :id))
+                                 (nnreddit--base10 newsrc-seen-id))
+                           do (gnus-message 7 "nnreddit-request-group: cand=%s" (setq cand i))
+                           end
+                           finally return (or cand 0))))
+               (updated-seen-index (- num-headers
+                                      (aif
+                                          (seq-position (reverse headers) nil
+                                                        (lambda (plst _e)
+                                                          (not (plist-get plst :title))))
+                                          it -1)))
+               (updated-seen-id (aif (nth (1- updated-seen-index) headers)
+                                    (plist-get it :id) nil))
+               (delta (if newsrc-seen-index
+                          (max 0 (- newsrc-seen-index newsrc-seen-index-now))
+                        0))
+               (newsrc-read-ranges-shifted
+                (nnreddit--shift-ranges delta newsrc-read-ranges))
+               (newsrc-mark-ranges-shifted
+                (mapcar (lambda (what-ranges)
+                          (cl-case (car what-ranges)
+                            ('seen `(seen (1 . ,num-headers)))
+                            (t (cons (car what-ranges)
+                                     (nnreddit--shift-ranges delta (cdr what-ranges))))))
+                        newsrc-mark-ranges)))
+          (gnus-message 7 "nnreddit-request-group: seen-id=%s          seen-index=%s -> %s"
+                        newsrc-seen-id newsrc-seen-index newsrc-seen-index-now)
+          (gnus-message 7 "nnreddit-request-group: seen-id-to-be=%s seen-index-to-be=%s delta=%d"
+                        updated-seen-id updated-seen-index delta)
+          (gnus-message 7 "nnreddit-request-group: read-ranges=%s shifted-read-ranges=%s"
+                        newsrc-read-ranges newsrc-read-ranges-shifted)
+          (gnus-message 7 "nnreddit-request-group: mark-ranges=%s shifted-mark-ranges=%s"
+                        newsrc-mark-ranges newsrc-mark-ranges-shifted)
+          (setf (gnus-info-read info) newsrc-read-ranges-shifted)
+          (gnus-info-set-marks info newsrc-mark-ranges-shifted)
+          (when updated-seen-id
+            (while (assq 'last-seen params)
+              (gnus-alist-pull 'last-seen params))
+            (gnus-info-set-params
+             info
+             (cons `(last-seen ,updated-seen-index . ,updated-seen-id) params)
+             t))
+          (unless (listp (gnus-info-method info))
+            (gnus-info-set-method info (gnus-group-method gnus-newsgroup-name) t))
+          (gnus-set-info gnus-newsgroup-name info)
+          (gnus-message 7 "nnreddit-request-group: new info=%s" info))))
     t))
 
 (deffoo nnreddit-request-scan (&optional group server)
   (nnreddit--normalize-server)
   (when group
     (nnreddit--with-group group
-      (let* ((comments (nnreddit-rpc-call server nil "comments" group))
-             (raw-submissions (nnreddit-rpc-call server nil "submissions" group))
-             (submissions (if (zerop (length comments))
-                              raw-submissions
-                            (nnreddit--filter-after
-                             (- (plist-get (aref comments 0) :created_utc) 7200)
-                             raw-submissions))))
-        (seq-doseq (e comments)
-          (nnreddit-add-entry nnreddit-refs-hashtb e :parent_id)) ;; :parent_id is fullname
-        (seq-doseq (e (vconcat submissions comments))
-          (nnreddit-add-entry nnreddit-authors-hashtb e :author))
-        (gnus-message 5 "nnreddit-request-scan: %s: +%s comments +%s submissions"
-                      group (length comments) (length submissions))
-        (nnreddit-sort-append-headers group submissions comments)))))
+      (cond ((string= group (nnreddit--inbox-realname))
+             (let ((inbox (nnreddit-rpc-call server nil "inboxes" nnreddit--whoami)))
+               (gnus-message 5 "nnreddit-request-scan: %s: +%s inbox"
+                             group (length inbox))
+               (seq-doseq (e inbox)
+                 (nnreddit-add-entry nnreddit-refs-hashtb e :parent_id)
+                 (nnreddit-add-entry nnreddit-authors-hashtb e :author))
+               (nnreddit-sort-append-headers group inbox)))
+            (t
+             (let* ((comments (nnreddit-rpc-call server nil "comments" group))
+                    (raw-submissions (nnreddit-rpc-call server nil "submissions" group))
+                    (submissions (if (zerop (length comments))
+                                     raw-submissions
+                                   (nnreddit--filter-after
+                                    (- (plist-get (aref comments 0) :created_utc) 7200)
+                                    raw-submissions))))
+               (seq-doseq (e comments)
+                 (nnreddit-add-entry nnreddit-refs-hashtb e :parent_id)) ;; :parent_id is fullname
+               (seq-doseq (e (vconcat submissions comments))
+                 (nnreddit-add-entry nnreddit-authors-hashtb e :author))
+               (gnus-message 5 "nnreddit-request-scan: %s: +%s comments +%s submissions"
+                             group (length comments) (length submissions))
+               (nnreddit-sort-append-headers group submissions comments)))))))
 
 (defsubst nnreddit--make-message-id (fullname)
   "Construct a valid Gnus message id from FULLNAME."
@@ -873,7 +903,9 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
 (deffoo nnreddit-request-list (&optional server)
   (nnreddit--normalize-server)
   (with-current-buffer nntp-server-buffer
-    (let ((groups (nnreddit-rpc-call server nil "user_subreddits"))
+    (let ((groups (append (nnreddit-rpc-call server nil "user_subreddits")
+                          (nnreddit--test-supports-inbox
+                           (list (nnreddit--inbox-realname)))))
           (newsrc (cl-mapcan (lambda (info)
                                (when (and (equal "nnreddit:" (gnus-info-method info))
                                           (<= (gnus-info-level info)
@@ -1358,6 +1390,10 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
  :around (symbol-function 'message-followup)
  (lambda (f &rest args)
    (let ((reddit-from (and (nnreddit--gate) (message-make-from))))
+     (when reddit-from
+       (nnreddit--with-group nil
+         (when (string= group (nnreddit--inbox-realname))
+           (error "Followup from inbox not implemented"))))
      (prog1 (apply f args)
        (when reddit-from
          (save-excursion
@@ -1434,7 +1470,8 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
  :before-until (symbol-function 'message-make-from)
  (lambda (&rest _args)
    (when (nnreddit--gate)
-     (concat (nnreddit-rpc-call nil nil "user_attr" "name") "@reddit.com"))))
+     (nnreddit--populate-whoami)
+     (concat nnreddit--whoami "@reddit.com"))))
 
 (add-function
  :around (symbol-function 'message-is-yours-p)

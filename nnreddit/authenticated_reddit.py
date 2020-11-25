@@ -49,7 +49,8 @@ else:
             return func(*args, **kwargs)
         return wrapper
 
-__version__ = '0.1.0'
+with open(os.path.join(os.path.dirname(__file__), 'VERSION')) as version_file:
+    version = version_file.read().strip()
 
 class AuthenticatedReddit(Reddit):
     @staticmethod
@@ -88,7 +89,7 @@ class AuthenticatedReddit(Reddit):
             'client_secret': 'cannot-be-empty',
             'redirect_port': 17973,
             'user_agent': praw.const.USER_AGENT_FORMAT.\
-            format(':'.join([os.uname()[0], 'nnreddit', __version__])),
+            format(':'.join([os.uname()[0], 'nnreddit', version])),
         }
         default_kwargs = { k: v for k,v in default_kwargs.items() if k not in kwargs }
         kwargs.update(default_kwargs)
@@ -148,6 +149,8 @@ class AuthenticatedReddit(Reddit):
         self._bodies = {}
         self._stream_comm = {}
         self._stream_subm = {}
+        self._stream_inbox = None
+
 
     @staticmethod
     def make_dict(reddit_base):
@@ -238,7 +241,7 @@ class AuthenticatedReddit(Reddit):
         dicts = self.collect_dicts(self._stream_comm.get(display_name))
         for d in dicts:
             if 'body_html' in d:
-                self._bodies[display_name][d['id']] = d.get('body_html')
+                self._bodies[display_name][d['id']] = d['body_html']
             else:
                 self._bodies[display_name][d['id']] = 'Wow, such empty'
             for k in list(d):
@@ -293,7 +296,7 @@ class AuthenticatedReddit(Reddit):
         dicts = self.collect_dicts(self._stream_subm.get(display_name))
         for d in dicts:
             if 'selftext_html' in d:
-                self._bodies[display_name][d['id']] = d.get('selftext_html')
+                self._bodies[display_name][d['id']] = d['selftext_html']
             elif 'url' in d:
                 self._bodies[display_name][d['id']] \
                     = ''.join(['<div>', '<p>',
@@ -311,3 +314,21 @@ class AuthenticatedReddit(Reddit):
 
     def user_attr(self, attr):
         return getattr(self.user.me(), attr)
+
+    def inboxes(self, inbox_name):
+        if not self._stream_inbox:
+            self._stream_inbox = self.inbox.stream(pause_after=0)
+        if inbox_name not in self._bodies:
+            self._bodies[inbox_name] = {}
+        dicts = self.collect_dicts(self._stream_inbox)
+        # TODO: direct messages, type: 'unknown', subject: 'foo', was_comment: False
+        dicts = [d for d in dicts if d.get('type') == 'comment_reply' or d.get('type') == 'post_reply']
+        for d in dicts:
+            if 'body_html' in d:
+                self._bodies[inbox_name][d['id']] = d['body_html']
+            else:
+                self._bodies[inbox_name][d['id']] = 'Wow, such empty'
+            for k in list(d):
+                if k.startswith('body'):
+                    del d[k]
+        return dicts

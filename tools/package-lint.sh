@@ -24,6 +24,7 @@ cask emacs -Q --batch \
 
 # Reduce purity via:
 # --eval "(fset 'package-lint--check-defs-prefix (symbol-function 'ignore))" \
+PKG_MAIN=$(cask files | egrep -- "pkg.el$")
 travis_retry cask emacs -Q --batch \
            -l package-lint \
            --eval "(package-initialize)" \
@@ -41,4 +42,5 @@ travis_retry cask emacs -Q --batch \
                        \"org-babel-variable-assignments:\" \
                        \"org-babel-default-header-args:\" \
                        \"pcomplete/\")))" \
+           --eval "(setq package-lint-main-file \"${PKG_MAIN}\")" \
            -f package-lint-batch-and-exit "$1"

@@ -9,13 +9,19 @@ from setuptools import setup
 PACKAGE_NAME = "nnreddit"
 HERE = path.abspath(path.dirname(__file__))
 
+# https://packaging.python.org/guides/single-sourcing-package-version/#single-sourcing-the-version
+# I chose method #4 as it touts multi-language access, i.e., elisp and python
+# Method #1a via setup.cfg is cleanest, though.
+with open(path.join('nnreddit', 'VERSION')) as version_file:
+    version = version_file.read().strip()
+
 setup(
     name=PACKAGE_NAME,
     author="dickmao",
     description="PRAW nnreddit backend",
     license="GPLv3",
     packages=[PACKAGE_NAME],
-    version="0.1.0",
+    version=version,
     package_data={
         "nnreddit": ["templates/*"],
     },

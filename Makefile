@@ -9,8 +9,11 @@ ELCFILES = $(SRC:.el=.elc)
 
 .DEFAULT_GOAL := test-compile
 
+lisp/nnreddit-pkg.el: nnreddit/VERSION
+	sed 's/VERSION/"$(shell cat $<)"/' lisp/nnreddit-pkg.el.in > $@
+
 .PHONY: autoloads
-autoloads:
+autoloads: lisp/nnreddit-pkg.el
 	$(EMACS) -Q --batch --eval "(package-initialize)" --eval "(package-generate-autoloads \"nnreddit\" \"./lisp\")"
 
 README.rst: README.in.rst lisp/nnreddit.el
@@ -145,7 +148,7 @@ dist: dist-clean
 	cask package
 
 .PHONY: install
-install: dist
+install: dist autoloads
 	$(EMACS) -Q --batch --eval "(package-initialize)" \
 	  --eval "(add-to-list 'package-archives '(\"melpa\" . \"http://melpa.org/packages/\"))" \
 	  --eval "(package-refresh-contents)" \
