@@ -971,6 +971,12 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
       (princ (format "\nBuffer: %s\n%s\n\n" b (with-current-buffer b (buffer-string)))
              #'external-debugging-output))))
 
+(defsubst nnreddit--cripple-fight-p ()
+  "The albatross of a single-threaded event loop hangs heavy on gnus and exwm.
+As a result, each deadlocks the other in a race to the bottom between two
+relics of the 1990s."
+  (and (boundp 'exwm--connection) exwm--connection))
+
 (defun nnreddit-rpc-get (&optional server)
   "Retrieve the PRAW process for SERVER."
   (nnreddit--normalize-server)
@@ -1009,7 +1015,9 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
             (add-hook 'after-change-functions
                       (apply-partially 'nnreddit--message-user server)
                       nil t)))
-        (push proc nnreddit-processes))
+        (push proc nnreddit-processes)
+        (when (nnreddit--cripple-fight-p)
+          (error "`nnreddit-rpc-get': Under EXWM, authentication must be out-of-band")))
       proc)))
 
 (defmacro nnreddit--with-mutex (mtx &rest body)
