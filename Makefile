@@ -103,6 +103,7 @@ define TESTRUN
 --eval "(custom-set-variables \
   (quote (gnus-select-method (quote (nnreddit \"\")))) \
   (backquote (venv-location ,(file-name-as-directory (make-temp-file \"testrun-\" t)))) \
+  (quote (nnreddit-python-command \"$(PYTHON)\"))\
   (quote (gnus-verbose 8)) \
   (quote (nnreddit-log-rpc t)))" \
 --eval "(setq debug-on-error t)" \

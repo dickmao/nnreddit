@@ -5,7 +5,6 @@
 ;; Authors: dickmao <github id: dickmao>
 ;; Keywords: news
 ;; URL: https://github.com/dickmao/nnreddit
-;; Package-Requires: ((emacs "25.1"))
 
 ;; This file is NOT part of GNU Emacs.
 
