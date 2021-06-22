@@ -62,15 +62,15 @@
 (eval-when-compile
   (require 'subr-x)
   (unless (fboundp 'libxml-parse-xml-region)
-    (display-warning 'nnreddit "nnreddit requires libxml support"))
-  (when (version< emacs-version "26.1")
-    (defsubst string-trim-right (string &optional regexp)
-      "Trim STRING of trailing string matching REGEXP.
+    (display-warning 'nnreddit "nnreddit requires libxml support")))
 
+(defalias 'nnreddit-string-trim-right
+    (lambda (string &optional regexp)
+      "Trim STRING of trailing string matching REGEXP.
 REGEXP defaults to  \"[ \\t\\n\\r]+\"."
       (if (string-match (concat "\\(?:" (or regexp "[ \t\n\r]+") "\\)\\'") string)
           (replace-match "" t t string)
-        string))))
+        string)))
 
 (defgroup nnreddit nil "A Gnus backend for Reddit."
   :group 'gnus)
@@ -78,7 +78,7 @@ REGEXP defaults to  \"[ \\t\\n\\r]+\"."
 (defvar nnreddit--whoami nil "To populate with reddit login.")
 
 (defcustom nnreddit-max-render-bytes 300e3
-  "`quoted-printable-encode-region' bogs when the javascript spyware gets out of hand."
+  "`quoted-printable-encode-region' bogs when spyware gets out of hand."
   :type 'integer
   :group 'nnreddit)
 
@@ -228,8 +228,8 @@ name where this file resides) and the `nnreddit-python-command'."
 
 (defcustom nnreddit-localhost "127.0.0.1"
   "Some users keep their browser in a separate domain.
-
-Do not set this to \"localhost\" as a numeric IP is required for the oauth handshake."
+Do not set this to \"localhost\" as a numeric IP is required
+for the oauth handshake."
   :type 'string
   :group 'nnreddit)
 
@@ -238,26 +238,24 @@ Do not set this to \"localhost\" as a numeric IP is required for the oauth hands
 (defvar nnreddit--python-module-extra-args nil "Primarily for testing.")
 
 (define-minor-mode nnreddit-article-mode
-  "Minor mode for nnreddit articles.  Disallow `gnus-article-reply-with-original'.
+  "Minor mode for nnreddit articles.
+Disallow `gnus-article-reply-with-original'.
 
-\\{gnus-article-mode-map}
-"
+\\{gnus-article-mode-map}"
   :lighter " Reddit"
   :keymap nnreddit-article-mode-map)
 
 (define-minor-mode nnreddit-summary-mode
   "Disallow \"reply\" commands in `gnus-summary-mode-map'.
 
-\\{nnreddit-summary-mode-map}
-"
+\\{nnreddit-summary-mode-map}"
   :lighter " Reddit"
   :keymap nnreddit-summary-mode-map)
 
 (define-minor-mode nnreddit-group-mode
   "Add `R-g' go-to-subreddit binding to *Group*.
 
-\\{gnus-group-mode-map}
-"
+\\{gnus-group-mode-map}"
   :keymap gnus-group-mode-map)
 
 (cl-defun nnreddit-novote ()
@@ -295,10 +293,10 @@ Normalize it to \"nnreddit-default\"."
     (unless server
       (setq server canonical))
     (unless (string= server canonical)
-      (error "nnreddit--normalize-server: multiple servers unsupported!"))))
+      (error "`nnreddit--normalize-server': multiple servers unsupported!"))))
 
 (defvar nnreddit-headers-hashtb (gnus-make-hashtable)
-  "Group (subreddit) string -> interleaved submissions and comments sorted by created time.")
+  "Group -> merged submissions and comments sorted by created time.")
 
 (defvar nnreddit-refs-hashtb (gnus-make-hashtable)
   "Who replied to whom (global over all entries).")
@@ -438,6 +436,11 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
        (listp (gnus-group-method group))
        (eq 'nnreddit (car (gnus-group-method group)))))
 
+(defsubst nnreddit--message-gate ()
+  "In `message-mode', `gnus-newsgroup-name' could be anything.
+So we cannot use `nnreddit--gate'."
+  (nnreddit--gate (car-safe gnus-message-group-art)))
+
 (defun nnreddit-update-subscription (group level oldlevel &optional _previous)
   "Nnreddit `gnus-group-change-level' callback of GROUP to LEVEL from OLDLEVEL."
   (when (nnreddit--gate group)
@@ -553,9 +556,9 @@ Originally written by Paul Issartel."
                       (reverse base36))))
 
 (deffoo nnreddit-request-group-scan (group &optional server _info)
-  "M-g from *Group* calls this.
-
-Set flag for the ensuing `nnreddit-request-group' to avoid going out to PRAW yet again."
+  "\\[gnus-group-get-new-news-this-group] from *Group* calls this.
+Set flag for the ensuing `nnreddit-request-group' to avoid going out
+to PRAW yet again."
   (nnreddit--normalize-server)
   (nnreddit--with-group group
     (gnus-message 5 "nnreddit-request-group-scan: scanning %s..." group)
@@ -777,7 +780,7 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
                      content-type
                      (base64-encode-string (encode-coding-string data 'binary) t)))
             ((string= type "text") data)
-            (t (error "nnreddit--content-handler: passing on %s" content-type))))))
+            (t (error "`nnreddit--content-handler': passing on %s" content-type))))))
 
 (defmacro nnreddit--concat (thus-far &rest add)
   "Assign to THUS-FAR the catenation of itself and ADD."
@@ -950,7 +953,7 @@ and LVP (list of vectors of plists).  Used in the interleaving of submissions an
   (let ((string (buffer-substring beg end))
         (magic "::user::"))
     (when (string-prefix-p magic string)
-      (message "%s: %s" server (string-trim-right
+      (message "%s: %s" server (nnreddit-string-trim-right
                                 (substring string (length magic))
                                 "\n")))))
 
@@ -1072,11 +1075,11 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
                  do (accept-process-output proc iteration-seconds 0)
                  finally return
                  (cond ((null result)
-                        (error "nnreddit-rpc-request: response timed out"))
+                        (error "`nnreddit-rpc-request': response timed out"))
                        ((plist-get result :error)
-                        (error "nnreddit-rpc-request: %s" (plist-get result :error)))
+                        (error "`nnreddit-rpc-request': %s" (plist-get result :error)))
                        (t
-                        (gnus-message 7 "nnreddit-rpc-request: recv ...%s"
+                        (gnus-message 7 "`nnreddit-rpc-request': recv ...%s"
                                       (cl-subseq (buffer-string)
                                                  (- (min (length (buffer-string)) 50))))
                         (plist-get result :result))))))))
@@ -1096,7 +1099,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
   (let* ((ret t)
          (kwargs (make-hash-table))
          (title (or (message-fetch-field "Subject")
-                    (error "nnreddit-request-post: no subject field")))
+                    (error "`nnreddit-request-post': no subject field")))
          (link (message-fetch-field "Link"))
          (reply-p (not (null message-reply-headers)))
          (edit-name (nnreddit--extract-name (message-fetch-field "Supersedes")))
@@ -1106,7 +1109,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
          (group (if (numberp article-number)
                     (gnus-group-real-name (nnreddit--current-group))
                   (or (message-fetch-field "Newsgroups")
-                      (error "nnreddit-request-post: no newsgroups field"))))
+                      (error "`nnreddit-request-post': no newsgroups field"))))
          (header (when (numberp article-number)
                    (nnreddit--get-header article-number group)))
          (body
@@ -1122,7 +1125,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
                                           (plist-get header :name)
                                           body (stringp root-p))
                      (backtrace)
-                     (error "nnreddit-request-post: no current article, header=%s name=%s"
+                     (error "`nnreddit-request-post': no current article, header=%s name=%s"
                             header
                             (when header (plist-get header :name)))))
           (link (let* ((parsed-url (url-generic-parse-url link))
@@ -1132,7 +1135,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
                         (puthash 'url link kwargs)
                         (nnreddit-rpc-call server kwargs "submit" group title))
                     ;; gnus-error might be better here
-                    (error "nnreddit-request-post: invalid url \"%s\"" link)
+                    (error "`nnreddit-request-post': invalid url \"%s\"" link)
                     (setq ret nil))))
           (t (puthash 'selftext body kwargs)
              (nnreddit-rpc-call server kwargs "submit" group title)))
@@ -1396,7 +1399,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
 (add-function
  :around (symbol-function 'message-followup)
  (lambda (f &rest args)
-   (let ((reddit-from (and (nnreddit--gate) (message-make-from))))
+   (let ((reddit-from (and (nnreddit--message-gate) (message-make-from))))
      (when reddit-from
        (nnreddit--with-group nil
          (when (string= group (nnreddit--inbox-realname))
@@ -1404,12 +1407,12 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
      (prog1 (apply f args)
        (when reddit-from
          (save-excursion
-           (message-replace-header "From" reddit-from)))))))
+	   (message-replace-header "From" reddit-from)))))))
 
 (add-function
  :around (symbol-function 'message-supersede)
  (lambda (f &rest args)
-   (cond ((nnreddit--gate)
+   (cond ((nnreddit--message-gate)
           (add-function :override
                         (symbol-function 'mml-insert-mml-markup)
                         'ignore)
@@ -1430,7 +1433,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
 (add-function
  :around (symbol-function 'message-send-news)
  (lambda (f &rest args)
-   (cond ((nnreddit--gate)
+   (cond ((nnreddit--message-gate)
           (let* ((dont-ask (lambda (prompt)
                              (when (cl-search "mpty article" prompt) t)))
                  (link-p (not (null (message-fetch-field "Link"))))
@@ -1469,14 +1472,15 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
 (add-function
  :filter-return (symbol-function 'message-make-fqdn)
  (lambda (val)
-   (if (and (nnreddit--gate)
+   (if (and (nnreddit--message-gate)
             (cl-search "--so-tickle-me" val))
-       "reddit.com" val)))
+       "reddit.com"
+     val)))
 
 (add-function
  :before-until (symbol-function 'message-make-from)
  (lambda (&rest _args)
-   (when (nnreddit--gate)
+   (when (nnreddit--message-gate)
      (nnreddit--populate-whoami)
      (concat nnreddit--whoami "@reddit.com"))))
 
@@ -1488,7 +1492,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                          (if (string= (car args) "from")
                              (concat fetched "@reddit.com")
                            fetched)))))
-     (when (nnreddit--gate)
+     (when (nnreddit--message-gate)
        (add-function :around
                      (symbol-function 'message-fetch-field)
                      concat-func))

@@ -6,6 +6,10 @@
       (lambda ()
         (setq nnreddit--python-module-extra-args '("--token-file" "/dev/null"))))
 
+(When "^eval \"\\(.*\\)\"$"
+  (lambda (command)
+    (eval (car (read-from-string command)))))
+
 (When "I unhide tokens$"
       (lambda ()
         (setq nnreddit--python-module-extra-args nil)))

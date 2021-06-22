@@ -6,8 +6,16 @@ endif
 SRC=$(shell cask files)
 PKBUILD=2.3
 ELCFILES = $(SRC:.el=.elc)
+CASK_DIR := $(shell EMACS=$(EMACS) cask package-directory || exit 1)
 
 .DEFAULT_GOAL := test-compile
+
+.PHONY: cask
+cask: $(CASK_DIR)
+
+$(CASK_DIR): Cask
+	cask install
+	touch $(CASK_DIR)
 
 lisp/nnreddit-pkg.el: nnreddit/VERSION
 	sed 's/VERSION/"$(shell cat $<)"/' lisp/nnreddit-pkg.el.in > $@
@@ -31,10 +39,9 @@ clean:
 	rm -rf tests/test-install
 
 .PHONY: test-compile
-test-compile: autoloads
+test-compile: cask autoloads
 	$(PYTHON) -m pip -q install --user pylint pytest
 	$(PYTHON) -m pylint nnreddit --rcfile=nnreddit/pylintrc
-	cask install
 	sh -e tools/package-lint.sh lisp/nnreddit.el
 	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | egrep -a "(Warning|Error):")
 	cask clean-elc
@@ -138,9 +145,9 @@ test-int:
 	$(PYTHON) -m pip -q install --user -r requirements-dev.txt
 	$(PYTHON) -m pytest tests/test_oauth.py
 	rm -f tests/.newsrc.eld
-	PYTHON=$(PYTHON) cask exec ecukes --debug --reporter magnars --tags "~@inbox"
+	PYTHON=$(PYTHON) cask exec ecukes --reporter magnars --tags "~@inbox"
 	rm -f tests/.newsrc.eld
-	PYTHON=$(PYTHON) cask exec ecukes --debug --reporter magnars --tags "@inbox"
+	PYTHON=$(PYTHON) cask exec ecukes --reporter magnars --tags "@inbox"
 
 .PHONY: dist-clean
 dist-clean:

@@ -148,6 +148,7 @@ Scenario: Going to hongkong make me really go to HongKong
   Given gnus stop
   When begin recording "canonical"
   Given gnus start
+  And eval "(setq minibuffer-history nil)"
   And I goto group "hongkong"
   And I press "q"
   Then I should be in buffer "*Group*"
