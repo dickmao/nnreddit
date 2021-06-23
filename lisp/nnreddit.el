@@ -75,46 +75,7 @@ REGEXP defaults to  \"[ \\t\\n\\r]+\"."
 (defgroup nnreddit nil "A Gnus backend for Reddit."
   :group 'gnus)
 
-(defcustom nnreddit-localhost "127.0.0.1"
-  "Some users keep their browser in a separate domain.
-Do not set this to \"localhost\" as a numeric IP is required
-for the oauth handshake."
-  :type 'string
-  :group 'nnreddit)
-
-(defmacro nnreddit--normalize-server ()
-  "Disallow \"server\" from being empty string, which is unsettling.
-Normalize it to \"nnreddit-default\"."
-  `(let ((canonical "nnreddit-default"))
-    (when (equal server "")
-      (setq server nil))
-    (unless server
-      (setq server canonical))
-    (unless (string= server canonical)
-      (error "`nnreddit--normalize-server': multiple servers unsupported!"))))
-
-(defsubst nnreddit-rpc-call (server generator_kwargs method &rest args)
-  "Make jsonrpc call to SERVER with GENERATOR_KWARGS using METHOD ARGS.
-
-Process stays the same, but the jsonrpc connection (a cheap struct) gets reinstantiated with every call."
-  (nnreddit--normalize-server)
-  (-when-let* ((proc (nnreddit-rpc-get server))
-               (connection (json-rpc--create :process proc
-                                             :host nnreddit-localhost
-                                             :id-counter 0)))
-    (condition-case-unless-debug err
-        (apply #'nnreddit-rpc-request connection generator_kwargs method args)
-      (error (gnus-message 3 "nnreddit-rpc-call: %s" (error-message-string err))
-             nil))))
-
 (defvar nnreddit--whoami nil "To populate with reddit login.")
-(defsubst nnreddit--who-am-i ()
-  "Get login name from PRAW user_attr."
-  (unless nnreddit--whoami
-    (setq nnreddit--whoami
-          (aand (nnreddit-rpc-call nil nil "user_attr" "name")
-                (and (stringp it) (not (zerop (length it))) it))))
-  nnreddit--whoami)
 
 (defcustom nnreddit-max-render-bytes 300e3
   "`quoted-printable-encode-region' bogs when spyware gets out of hand."
@@ -265,6 +226,13 @@ name where this file resides) and the `nnreddit-python-command'."
   :type 'integer
   :group 'nnreddit)
 
+(defcustom nnreddit-localhost "127.0.0.1"
+  "Some users keep their browser in a separate domain.
+Do not set this to \"localhost\" as a numeric IP is required
+for the oauth handshake."
+  :type 'string
+  :group 'nnreddit)
+
 (defvar nnreddit-rpc-log-filename nil)
 
 (defvar nnreddit--python-module-extra-args nil "Primarily for testing.")
@@ -316,6 +284,17 @@ Disallow `gnus-article-reply-with-original'.
                      (setq index (1+ index))))
                  sequence)))))
 
+(defmacro nnreddit--normalize-server ()
+  "Disallow \"server\" from being empty string, which is unsettling.
+Normalize it to \"nnreddit-default\"."
+  `(let ((canonical "nnreddit-default"))
+    (when (equal server "")
+      (setq server nil))
+    (unless server
+      (setq server canonical))
+    (unless (string= server canonical)
+      (error "`nnreddit--normalize-server': multiple servers unsupported!"))))
+
 (defvar nnreddit-headers-hashtb (gnus-make-hashtable)
   "Group -> merged submissions and comments sorted by created time.")
 
@@ -364,6 +343,28 @@ Disallow `gnus-article-reply-with-original'.
 
 (nnoo-define-basics nnreddit)
 
+(defsubst nnreddit-rpc-call (server generator_kwargs method &rest args)
+  "Make jsonrpc call to SERVER with GENERATOR_KWARGS using METHOD ARGS.
+
+Process stays the same, but the jsonrpc connection (a cheap struct) gets reinstantiated with every call."
+  (nnreddit--normalize-server)
+  (-when-let* ((proc (nnreddit-rpc-get server))
+               (connection (json-rpc--create :process proc
+                                             :host nnreddit-localhost
+                                             :id-counter 0)))
+    (condition-case-unless-debug err
+        (apply #'nnreddit-rpc-request connection generator_kwargs method args)
+      (error (gnus-message 3 "nnreddit-rpc-call: %s" (error-message-string err))
+             nil))))
+
+(defsubst nnreddit--populate-whoami ()
+  "Get login name from PRAW user_attr."
+  (unless nnreddit--whoami
+    (setq nnreddit--whoami
+          (aand (nnreddit-rpc-call nil nil "user_attr" "name")
+                (and (stringp it) (not (zerop (length it))) it))))
+  nnreddit--whoami)
+
 (defvar nnreddit--current-feature)
 (defmacro nnreddit--test-supports-inbox (&rest body)
   "Run BODY if not testing or testfile later than 20201124."
@@ -373,8 +374,8 @@ Disallow `gnus-article-reply-with-original'.
 
 (defun nnreddit--inbox-realname ()
   "Return /u/[nnreddit--whoami]."
-  (nnreddit--test-supports-inbox (nnreddit--who-am-i))
-  (when (stringp (nnreddit--who-am-i)) (concat "/u/" (nnreddit--who-am-i))))
+  (nnreddit--test-supports-inbox (nnreddit--populate-whoami))
+  (when (stringp nnreddit--whoami) (concat "/u/" nnreddit--whoami)))
 
 (defun nnreddit-goto-group (realname)
   "Jump to the REALNAME subreddit."
@@ -682,7 +683,7 @@ to PRAW yet again."
   (when group
     (nnreddit--with-group group
       (cond ((string= group (nnreddit--inbox-realname))
-             (let ((inbox (nnreddit-rpc-call server nil "inboxes" (nnreddit--who-am-i))))
+             (let ((inbox (nnreddit-rpc-call server nil "inboxes" nnreddit--whoami)))
                (gnus-message 5 "nnreddit-request-scan: %s: +%s inbox"
                              group (length inbox))
                (seq-doseq (e inbox)
