@@ -1335,17 +1335,24 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
     (setq gnus-group-change-level-function #'nnreddit-update-subscription))
   (nnreddit-group-mode))
 
+(defun nnreddit--who-am-i ()
+  (concat (if (and noninteractive (not nnreddit--whoami))
+              "nnreddit-user"
+            nnreddit--whoami)
+          "@reddit.com"))
+
+(defun nnreddit--fix-from ()
+  (when (nnreddit--message-gate)
+    (save-excursion
+      (message-replace-header
+       "From"
+       (nnreddit--who-am-i)))))
+
 ;; I believe I did try buffer-localizing hooks, and it wasn't sufficient
 (add-hook 'gnus-article-mode-hook 'nnreddit-article-mode-activate)
 (add-hook 'gnus-group-mode-hook 'nnreddit-group-mode-activate)
 (add-hook 'gnus-summary-mode-hook 'nnreddit-summary-mode-activate)
-(add-hook 'gnus-message-setup-hook
-          (lambda ()
-            (when (nnreddit--message-gate)
-              (save-excursion
-                (message-replace-header
-                 "From"
-                 (concat nnreddit--whoami "@reddit.com"))))))
+(add-hook 'gnus-message-setup-hook #'nnreddit--fix-from)
 
 ;; `gnus-newsgroup-p' requires valid method post-mail to return t
 (add-to-list 'gnus-valid-select-methods '("nnreddit" post-mail) t)
@@ -1411,11 +1418,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
        (when (string= group (nnreddit--inbox-realname))
          (error "Followup from inbox not implemented"))))
    (prog1 (apply f args)
-     (when (nnreddit--message-gate)
-       (save-excursion
-         (message-replace-header
-          "From"
-          (concat nnreddit--whoami "@reddit.com")))))))
+     (nnreddit--fix-from))))
 
 (add-function
  :around (symbol-function 'message-supersede)
@@ -1429,9 +1432,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                 (remove-function (symbol-function 'mml-insert-mml-markup) 'ignore)
                 (save-excursion
                   (save-restriction
-                    (message-replace-header
-                     "From"
-                     (concat nnreddit--whoami "@reddit.com"))
+                    (nnreddit--fix-from)
                     (message-goto-body)
                     (narrow-to-region (point) (point-max))
                     (goto-char (point-max))
@@ -1487,17 +1488,21 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
  :around (symbol-function 'message-is-yours-p)
  (lambda (f &rest args)
    (let ((concat-func (lambda (f &rest args)
-                       (let ((fetched (apply f args)))
-                         (if (string= (car args) "from")
-                             (concat fetched "@reddit.com")
-                           fetched)))))
+                        (let ((fetched (apply f args)))
+                          (if (string= (car args) "from")
+                              (concat fetched "@reddit.com")
+                            fetched)))))
      (when (nnreddit--message-gate)
        (add-function :around
                      (symbol-function 'message-fetch-field)
-                     concat-func))
+                     concat-func)
+       (add-function :override
+                     (symbol-function 'message-make-from)
+                     #'nnreddit--who-am-i))
      (unwind-protect
          (apply f args)
-       (remove-function (symbol-function 'message-fetch-field) concat-func)))))
+       (remove-function (symbol-function 'message-fetch-field) concat-func)
+       (remove-function (symbol-function 'message-make-from) #'nnreddit--who-am-i)))))
 
 (add-function
  :around (symbol-function 'url-http-generic-filter)
