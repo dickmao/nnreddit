@@ -1345,7 +1345,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
               (save-excursion
                 (message-replace-header
                  "From"
-                 (concat (nnreddit--who-am-i) "@reddit.com"))))))
+                 (concat nnreddit--whoami "@reddit.com"))))))
 
 ;; `gnus-newsgroup-p' requires valid method post-mail to return t
 (add-to-list 'gnus-valid-select-methods '("nnreddit" post-mail) t)
@@ -1415,7 +1415,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
        (save-excursion
          (message-replace-header
           "From"
-          (concat (nnreddit--who-am-i) "@reddit.com")))))))
+          (concat nnreddit--whoami "@reddit.com")))))))
 
 (add-function
  :around (symbol-function 'message-supersede)
@@ -1431,7 +1431,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                   (save-restriction
                     (message-replace-header
                      "From"
-                     (concat (nnreddit--who-am-i) "@reddit.com"))
+                     (concat nnreddit--whoami "@reddit.com"))
                     (message-goto-body)
                     (narrow-to-region (point) (point-max))
                     (goto-char (point-max))
