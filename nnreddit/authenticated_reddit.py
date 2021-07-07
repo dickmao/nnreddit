@@ -85,7 +85,7 @@ class AuthenticatedReddit(Reddit):
             'history_file': rtv.config.HISTORY,
             'token_file': rtv.config.TOKEN,
             'redirect_uri': 'http://' + localhost + ':17973',
-            'client_id': 'KBV2seGZgHOa9g',
+            'client_id': '5oagOpX2_NKVDej_iuZjFA',
             'client_secret': 'cannot-be-empty',
             'redirect_port': 17973,
             'user_agent': praw.const.USER_AGENT_FORMAT.\
