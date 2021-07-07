@@ -221,7 +221,7 @@ class AuthenticatedReddit(Reddit):
             raise ValueError('Unexpected name {} with type {}'.format(name, mytype))
         editable.edit(body)
 
-    def delete(self, name):
+    def remove(self, name):
         (mytype, myid) = name.split("_", 1)
         editable = None
         if mytype == self.config.kinds['submission']:

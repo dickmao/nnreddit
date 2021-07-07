@@ -1118,7 +1118,7 @@ Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so w
               (message-goto-body)
               (narrow-to-region (point) (point-max))
               (buffer-string)))))
-    (cond (cancel-name (nnreddit-rpc-call server nil "delete" cancel-name))
+    (cond (cancel-name (nnreddit-rpc-call server nil "remove" cancel-name))
           (edit-name (nnreddit-rpc-call server nil "edit" edit-name body))
           (reply-p (if (and header (plist-get header :name))
                        (nnreddit-rpc-call server nil "reply"
