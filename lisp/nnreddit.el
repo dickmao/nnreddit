@@ -1336,12 +1336,14 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
   (nnreddit-group-mode))
 
 (defun nnreddit--who-am-i ()
+  "User@reddit.com for matching in `message-is-yours-p'."
   (concat (if (and noninteractive (not nnreddit--whoami))
               "nnreddit-user"
             nnreddit--whoami)
           "@reddit.com"))
 
 (defun nnreddit--fix-from ()
+  "Must fix the From header, always."
   (when (nnreddit--message-gate)
     (save-excursion
       (message-replace-header
@@ -1362,6 +1364,9 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
 (let* ((prompt-loose
         (lambda (f &rest args)
           (cond ((nnreddit--gate)
+                 (nnreddit--with-group nil
+                   (when (string= group (nnreddit--inbox-realname))
+                     (error "Followup from inbox not implemented")))
                  (or (-when-let*
                       ((article-number (gnus-summary-article-number))
                        (header (nnreddit--get-header article-number))
@@ -1409,16 +1414,6 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
                         suspend-prompt-loose))))
   (funcall advise-gnus-summary-cancel-article)
   (funcall advise-gnus-summary-followup))
-
-(add-function
- :around (symbol-function 'message-followup)
- (lambda (f &rest args)
-   (when (nnreddit--message-gate)
-     (nnreddit--with-group nil
-       (when (string= group (nnreddit--inbox-realname))
-         (error "Followup from inbox not implemented"))))
-   (prog1 (apply f args)
-     (nnreddit--fix-from))))
 
 (add-function
  :around (symbol-function 'message-supersede)
