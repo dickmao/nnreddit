@@ -2,9 +2,10 @@
   VERSION
   "Gnus Backend For Reddit"
   '((emacs "25.1")
-    (virtualenvwrapper "20190223")
-    (json-rpc "20200417")
-    (dash "20190401")
-    (anaphora "20180618")
-    (request "20190819"))
+    (request "0.3.3")
+    (anaphora "1.0.4")
+    (dash "2.18.1")
+    (json-rpc "0.0.1")
+    (virtualenvwrapper "20151123")
+    (s "1.6.1"))
   :url "https://github.com/dickmao/nnreddit")

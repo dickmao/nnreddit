@@ -17,7 +17,7 @@ $(CASK_DIR): Cask
 	cask install
 	touch $(CASK_DIR)
 
-lisp/nnreddit-pkg.el: nnreddit/VERSION
+lisp/nnreddit-pkg.el: nnreddit/VERSION lisp/nnreddit-pkg.el.in
 	sed 's/VERSION/"$(shell cat $<)"/' lisp/nnreddit-pkg.el.in > $@
 
 .PHONY: autoloads
