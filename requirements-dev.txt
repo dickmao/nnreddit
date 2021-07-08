@@ -1,3 +1,4 @@
+praw==7.3.0
 rtv==1.26.0
 jsonrpyc==1.1.0
 vcrpy==2.0.1
