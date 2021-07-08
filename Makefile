@@ -123,7 +123,7 @@ define TESTRUN
 endef
 
 .PHONY: test-run
-test-run:
+test-run: cask autoloads
 	cask emacs -Q --batch \
 	  $(TESTRUN) \
 	  --eval "(require 'nnreddit)" \
