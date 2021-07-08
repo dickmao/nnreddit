@@ -98,6 +98,6 @@ Clone this repo.  Then install Cask_.  Then try ``make test-run-interactive``.
 .. _walkthrough: https://github.com/dickmao/gnus-imap-walkthrough
 .. _Cask: https://cask.readthedocs.io/en/latest/guide/installation.html
 .. _Getting started: http://melpa.org/#/getting-started
-.. _reinstall the latest nnreddit: http://github.com/dickmao/elpaso
+.. _install the latest nnreddit: http://github.com/dickmao/elpaso
 .. _virtualenv: https://virtualenv.pypa.io/en/stable
 .. _PRAW: https://github.com/praw-dev/praw/pull/1094
