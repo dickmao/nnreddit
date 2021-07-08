@@ -26,9 +26,9 @@
 
 Install
 =======
-**To stay apace with the** PRAW_ **backend, as of 24 May 2020, nnreddit no longer supports python2.**  If your system keeps python 3.x in a separate alias such as ``python3``, you should ``M-x customize-variable RET nnreddit-python-command`` to it.
-
 **As of 06 July 2021, authentication behavior at Reddit changed** such that nnreddit versions previous to 0.2.0 no longer work.  Delete ``$HOME/.local/share/nnreddit/refresh-token``, and `install the latest nnreddit`_.
+
+**As of 24 May 2020, to stay apace with the** PRAW_ **backend, nnreddit no longer supports python2.**  If your system keeps python 3.x in a separate alias such as ``python3``, you should ``M-x customize-variable RET nnreddit-python-command`` to it.
 
 As described in `Getting started`_, ensure melpa's whereabouts in ``init.el`` or ``.emacs``::
 
