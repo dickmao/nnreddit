@@ -96,7 +96,7 @@ Clone this repo.  Then install Cask_.  Then try ``make test-run-interactive``.
 .. [1] Gnus users are familiar with the tragedy of ``u`` doing double duty as subscriber and unsubscriber.  ``u`` is really a toggle even though the attached command is ``gnus-group-unsubscribe-current-group`` |---| if that doesn't trigger your UX sensibility, then never mind I mentioned it.
 
 .. _walkthrough: https://github.com/dickmao/gnus-imap-walkthrough
-.. _Cask: https://cask.readthedocs.io/en/latest/guide/installation.html
+.. _Cask: https://github.com/cask/cask#installation
 .. _Getting started: http://melpa.org/#/getting-started
 .. _install the latest nnreddit: http://github.com/dickmao/elpaso
 .. _virtualenv: https://virtualenv.pypa.io/en/stable
