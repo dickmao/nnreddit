@@ -26,22 +26,11 @@ A Gnus backend for Reddit.
 
 Install
 =======
-**As of 06 July 2021, authentication behavior at Reddit changed** such that nnreddit versions previous to 0.2.0 no longer work.  Delete ``$HOME/.local/share/nnreddit/refresh-token``, and `install the latest nnreddit`_.
+**As of 06 July 2021, authentication behavior at Reddit changed** such that nnreddit versions previous to 0.2.0 no longer work.  Delete ``$HOME/.local/share/nnreddit/refresh-token``, and install the latest nnreddit.
 
 **As of 24 May 2020, to stay apace with the** PRAW_ **backend, nnreddit no longer supports python2.**  If your system keeps python 3.x in a separate alias such as ``python3``, you should ``M-x customize-variable RET nnreddit-python-command`` to it.
 
-As described in `Getting started`_, ensure melpa's whereabouts in ``init.el`` or ``.emacs``::
-
-   (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
-
-Then
-
-::
-
-   M-x package-refresh-contents RET
-   M-x package-install RET nnreddit RET
-
-Alternatively, directly clone this repo and ``make install``.
+We are trying to push ELPASO_ as the preferred package installer.  Alternatively, directly clone this repo and ``make install``.
 
 Also see Troubleshooting_.
 
@@ -98,6 +87,6 @@ Clone this repo.  Then install Cask_.  Then try ``make test-run-interactive``.
 .. _walkthrough: https://github.com/dickmao/gnus-imap-walkthrough
 .. _Cask: https://github.com/cask/cask#installation
 .. _Getting started: http://melpa.org/#/getting-started
-.. _install the latest nnreddit: http://github.com/dickmao/elpaso
+.. _ELPASO: http://github.com/dickmao/elpaso
 .. _virtualenv: https://virtualenv.pypa.io/en/stable
 .. _PRAW: https://github.com/praw-dev/praw/pull/1094
