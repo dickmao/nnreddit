@@ -14,7 +14,7 @@ CASK_DIR := $(shell EMACS=$(EMACS) cask package-directory || exit 1)
 cask: $(CASK_DIR)
 
 $(CASK_DIR): Cask
-	cask install
+	cask eval "(progn (setq gnutls-algorithm-priority \"NORMAL:-VERS-TLS1.3\") (cask-cli/install))"
 	touch $(CASK_DIR)
 
 lisp/nnreddit-pkg.el: nnreddit/VERSION lisp/nnreddit-pkg.el.in
