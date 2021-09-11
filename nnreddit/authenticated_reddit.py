@@ -49,7 +49,7 @@ else:
             return func(*args, **kwargs)
         return wrapper
 
-with open(os.path.join(os.path.dirname(__file__), 'VERSION')) as version_file:
+with open(os.path.join(os.path.dirname(__file__), 'VERSION'), encoding="utf-8") as version_file:
     version = version_file.read().strip()
 
 class AuthenticatedReddit(Reddit):
