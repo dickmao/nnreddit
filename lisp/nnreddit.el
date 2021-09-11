@@ -765,7 +765,6 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
   (let ((request-backend backend))
     (apply #'request url
            :sync t
-           :timeout 10
            :error (apply-partially #'nnreddit--request-error caller)
            attributes)))
 
