@@ -255,8 +255,8 @@ Disallow `gnus-article-reply-with-original'.
 (define-minor-mode nnreddit-group-mode
   "Add `R-g' go-to-subreddit binding to *Group*.
 
-\\{gnus-group-mode-map}"
-  :keymap gnus-group-mode-map)
+\\{nnreddit-group-mode-map}"
+  :keymap nnreddit-group-mode-map)
 
 (cl-defun nnreddit-novote ()
   "Retract vote."
