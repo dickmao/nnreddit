@@ -193,7 +193,8 @@ name where this file resides) and the `nnreddit-python-command'."
                  (const :tag "Development" nil))
   :group 'nnreddit)
 
-;; unconditional
+(defvar nnreddit-group-mode-map (make-sparse-keymap))
+
 (gnus-define-keys (nnreddit-group-mode-map "R" gnus-group-mode-map)
   "g" nnreddit-goto-group)
 
@@ -256,7 +257,8 @@ Disallow `gnus-article-reply-with-original'.
   "Add `R-g' go-to-subreddit binding to *Group*.
 
 \\{nnreddit-group-mode-map}"
-  :keymap nnreddit-group-mode-map)
+  :keymap nnreddit-group-mode-map
+  :interactive (gnus-group-mode))
 
 (cl-defun nnreddit-novote ()
   "Retract vote."
@@ -1332,8 +1334,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
   (if gnus-group-change-level-function
       (add-function :after gnus-group-change-level-function
                     #'nnreddit-update-subscription)
-    (setq gnus-group-change-level-function #'nnreddit-update-subscription))
-  (nnreddit-group-mode))
+    (setq gnus-group-change-level-function #'nnreddit-update-subscription)))
 
 (defun nnreddit--who-am-i ()
   "User@reddit.com for matching in `message-is-yours-p'."
