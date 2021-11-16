@@ -91,8 +91,8 @@ Otherwise, just display link."
 
 (defmacro nnreddit--gethash (string hashtable)
   "Get corresponding value of STRING from HASHTABLE.
-
-Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtables."
+Starting in emacs-src commit c1b63af, Gnus moved from obarrays to
+normal hashtables."
   `(,(if (fboundp 'gnus-gethash-safe)
          'gnus-gethash-safe
        'gethash)
@@ -100,8 +100,8 @@ Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtab
 
 (defmacro nnreddit--sethash (string value hashtable)
   "Set corresponding value of STRING to VALUE in HASHTABLE.
-
-Starting in emacs-src commit c1b63af, Gnus moved from obarrays to normal hashtables."
+Starting in emacs-src commit c1b63af, Gnus moved from obarrays to
+normal hashtables."
   `(,(if (fboundp 'gnus-sethash)
          'gnus-sethash
        'puthash)
@@ -193,9 +193,21 @@ name where this file resides) and the `nnreddit-python-command'."
                  (const :tag "Development" nil))
   :group 'nnreddit)
 
+(defmacro nnreddit-define-keys (km prefix parent &rest binds)
+  "Define keymap KM with prefix PREFIX and parent PARENT with bindings BINDS."
+  (declare (indent defun))
+  (if (get 'gnus-define-keys 'byte-obsolete-info)
+      `(progn
+         (setq ,km nil)
+         (define-prefix-command ',km)
+         (define-key ,parent ,prefix ,km)
+         (cl-loop for (k v) on ',binds by (function cddr)
+                  do (define-key ,km k v)))
+    `(gnus-define-keys (,km ,prefix ,parent) ,@binds)))
+
 (defvar nnreddit-group-mode-map (make-sparse-keymap))
 
-(gnus-define-keys (nnreddit-group-mode-map "R" gnus-group-mode-map)
+(nnreddit-define-keys nnreddit-group-mode-map "R" gnus-group-mode-map
   "g" nnreddit-goto-group)
 
 (defvar nnreddit-summary-voting-map
@@ -347,8 +359,8 @@ Normalize it to \"nnreddit-default\"."
 
 (defsubst nnreddit-rpc-call (server generator_kwargs method &rest args)
   "Make jsonrpc call to SERVER with GENERATOR_KWARGS using METHOD ARGS.
-
-Process stays the same, but the jsonrpc connection (a cheap struct) gets reinstantiated with every call."
+Process stays the same, but the jsonrpc connection (a cheap struct) gets
+reinstantiated with every call."
   (nnreddit--normalize-server)
   (-when-let* ((proc (nnreddit-rpc-get server))
                (connection (json-rpc--create :process proc
@@ -383,7 +395,7 @@ Process stays the same, but the jsonrpc connection (a cheap struct) gets reinsta
   "Jump to the REALNAME subreddit."
   (interactive (list (read-no-blanks-input "Subreddit: r/")))
   (let* ((canonical (nnreddit-rpc-call nil nil "canonical_spelling" realname))
-         (group (gnus-group-full-name canonical "nnreddit")))
+         (group (gnus-group-full-name canonical (list "nnreddit"))))
     (if group
         (progn (gnus-activate-group group t)
                (gnus-group-read-group t t group))
@@ -746,8 +758,8 @@ to PRAW yet again."
                                    &aux (response-status
                                          (request-response-status-code response)))
   "Refer to CALLER when reporting a submit error.
-
-Also report http code of RESPONSE, which is distinct from SYMBOL-STATUS, and ERROR-THROWN.  The http code is stored in RESPONSE-STATUS."
+Also report http code of RESPONSE, which is distinct from SYMBOL-STATUS,
+and ERROR-THROWN.  The http code is stored in RESPONSE-STATUS."
   (gnus-message 3 "%s %s: http status %s, %s"
                 caller symbol-status response-status
                 (error-message-string error-thrown)))
@@ -757,8 +769,9 @@ Also report http code of RESPONSE, which is distinct from SYMBOL-STATUS, and ERR
                              &rest attributes &key parser (backend 'url-retrieve)
                              &allow-other-keys)
   "Prefix errors with CALLER when executing synchronous request to URL.
-
-Request shall contain ATTRIBUTES, one of which is PARSER of the response, if provided (shall default to verbatim dump of response, if not).  BACKEND can be curl (defaults to `url-retrieve')."
+Request shall contain ATTRIBUTES, one of which is PARSER of the response,
+if provided (shall default to verbatim dump of response, if not).
+BACKEND can be curl (defaults to `url-retrieve')."
   (unless parser
     (setq attributes (nconc attributes (list :parser #'buffer-string))))
   (setq attributes (cl-loop for (k v) on attributes by (function cddr)
@@ -857,8 +870,10 @@ Request shall contain ATTRIBUTES, one of which is PARSER of the response, if pro
       'nov)))
 
 (defsubst nnreddit--earliest-among (indices lvp)
-  "Return (list-to-iterate . next-earliest) from INDICES (thus-far iterators)
-and LVP (list of vectors of plists).  Used in the interleaving of submissions and comments."
+  "Return (list-to-iterate . next-earliest) from INDICES.
+INDICES are thus far iterators.
+LVP is a list of vectors of plists.
+Used in the interleaving of submissions and comments."
   (let (earliest next-earliest)
     (dolist (plst-idx
              (cl-remove-if-not #'car
@@ -1037,8 +1052,8 @@ relics of the 1990s."
 
 (defun nnreddit-rpc-request (connection kwargs method &rest args)
   "Send to CONNECTION a request with generator KWARGS calling METHOD ARGS.
-
-Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not, so we make our own."
+Library `json-rpc--request' assumes HTTP transport which jsonrpyc does not,
+so we make our own."
   (unless (hash-table-p kwargs)
     (setq kwargs #s(hash-table)))
   (let* ((id (cl-incf (json-rpc-id-counter connection)))
@@ -1330,7 +1345,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
     (nnreddit-summary-mode)))
 
 (defun nnreddit-group-mode-activate ()
-  "Augment the `gnus-group-mode-map' unconditionally."
+  "Augment the variable `gnus-group-mode-map' unconditionally."
   (if gnus-group-change-level-function
       (add-function :after gnus-group-change-level-function
                     #'nnreddit-update-subscription)

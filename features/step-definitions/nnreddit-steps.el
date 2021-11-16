@@ -69,12 +69,18 @@
                    (switch-to-buffer "*scratch*")))))
 
 (When "^begin recording \"\\(.+\\)\"$"
-      (lambda (cassette)
-        (should (nnreddit-rpc-call nil nil "recording_begin" cassette))))
+      (lambda (cassette-prefix)
+        (should (nnreddit-rpc-call nil nil "recording_begin"
+                                   (if (>= emacs-major-version 28)
+                                       (concat cassette-prefix "_" (number-to-string emacs-major-version))
+                                     cassette-prefix)))))
 
 (When "^end recording \"\\(.+\\)\"$"
-      (lambda (cassette)
-        (should (nnreddit-rpc-call nil nil "recording_end" cassette))))
+      (lambda (cassette-prefix)
+        (should (nnreddit-rpc-call nil nil "recording_end"
+                                   (if (>= emacs-major-version 28)
+                                       (concat cassette-prefix "_" (number-to-string emacs-major-version))
+                                     cassette-prefix)))))
 
 (When "^end recordings$"
       (lambda ()

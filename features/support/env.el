@@ -34,7 +34,9 @@
       (delete-file quick-file))))
 
 (Setup
- )
+ (custom-set-variables '(gnus-background-get-unread-articles nil)
+                       '(canlock-password "huh?"))
+)
 
 (After
  (setq nnreddit--whoami nil))
