@@ -1226,16 +1226,18 @@ The built-in `gnus-gather-threads-by-references' is both."
 	    (nnreddit--sethash (car refs) ref-thread threads-by-ref))))
       (nreverse result))))
 
-(defsubst nnreddit--fallback-link ()
+(defun nnreddit--fallback-link ()
   "Cannot render submission."
-  (let* ((group (gnus-group-real-name (nnreddit--current-group)))
-         (header (nnreddit--get-header (nnreddit--current-article-number) group))
-         (body (aif (plist-get header :name) (nnreddit--get-body it group))))
-    (with-current-buffer gnus-original-article-buffer
-      (article-goto-body)
-      (delete-region (point) (point-max))
-      (when body
-        (insert (nnreddit--br-tagify body))))))
+  (when-let ((current-group (nnreddit--current-group))
+             (current-article (nnreddit--current-article-number)))
+    (let* ((group (gnus-group-real-name current-group))
+           (header (nnreddit--get-header current-article group))
+           (body (awhen (plist-get header :name) (nnreddit--get-body it group))))
+      (with-current-buffer gnus-original-article-buffer
+        (article-goto-body)
+        (delete-region (point) (point-max))
+        (when body
+          (insert (nnreddit--br-tagify body)))))))
 
 (defalias 'nnreddit--display-article
   (lambda (article &optional all-headers _header)
