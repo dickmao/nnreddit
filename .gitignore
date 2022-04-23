@@ -11,3 +11,5 @@ super-secret-refresh-token
 .\#*
 todo.org
 ert-profile*
+tests/log
+nnreddit.egg-info

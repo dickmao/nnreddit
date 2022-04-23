@@ -17,7 +17,8 @@ export BASENAME=$(basename "$1")
 PKG_MAIN=$(cask files | egrep -- "pkg.el$")
 travis_retry cask emacs -Q --batch \
            -l package-lint \
-           --eval "(package-initialize)" \
+           --eval "(let ((v (format \"%s.%s\" emacs-major-version emacs-minor-version))) (custom-set-variables (backquote (package-user-dir ,(concat \".cask/\" v)))))" \
+           -f package-initialize \
            --eval "(push (quote (\"melpa\" . \"http://melpa.org/packages/\")) \
                          package-archives)" \
            --eval "(setq package-lint-main-file (if (zerop (length \"${PKG_MAIN}\")) nil \"${PKG_MAIN}\"))" \

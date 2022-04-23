@@ -646,17 +646,19 @@ to PRAW yet again."
                            end
                            if (> (nnreddit--base10 (plist-get plst :id))
                                  (nnreddit--base10 newsrc-seen-id))
-                           do (gnus-message 7 "nnreddit-request-group: cand=%s" (setq cand i))
+                           do (gnus-message 7 "nnreddit-request-group: cand=%s"
+                                            (setq cand i))
                            end
                            finally return (or cand 0))))
                (updated-seen-index (- num-headers
-                                      (aif
-                                          (seq-position (reverse headers) nil
-                                                        (lambda (plst _e)
-                                                          (not (plist-get plst :title))))
-                                          it -1)))
-               (updated-seen-id (aif (nth (1- updated-seen-index) headers)
-                                    (plist-get it :id) nil))
+                                      (aif (seq-position
+                                            (reverse headers) nil
+                                            (lambda (plst _e)
+                                              (not (plist-get plst :title))))
+                                          it
+                                        -1)))
+               (updated-seen-id (awhen (nth (1- updated-seen-index) headers)
+                                  (plist-get it :id)))
                (delta (if newsrc-seen-index
                           (max 0 (- newsrc-seen-index newsrc-seen-index-now))
                         0))
@@ -745,8 +747,8 @@ to PRAW yet again."
      0 0 nil
      (append `((X-Reddit-Name . ,(plist-get header :name)))
              `((X-Reddit-ID . ,(plist-get header :id)))
-             (aif (plist-get header :permalink)
-                           `((X-Reddit-Permalink . ,it)))
+             (awhen (plist-get header :permalink)
+               `((X-Reddit-Permalink . ,it)))
              (and (integerp score)
                   `((X-Reddit-Score . ,(number-to-string score))))
              (and (integerp num-comments)
@@ -810,8 +812,8 @@ BACKEND can be curl (defaults to `url-retrieve')."
              (mail-header (nnreddit--make-header article-number))
              (score (cdr (assq 'X-Reddit-Score (mail-header-extra mail-header))))
              (permalink (cdr (assq 'X-Reddit-Permalink (mail-header-extra mail-header))))
-             (body (aif (plist-get header :name)
-                       (nnreddit--get-body it group server))))
+             (body (awhen (plist-get header :name)
+                     (nnreddit--get-body it group server))))
         (when body
           (insert
            "Newsgroups: " group "\n"
@@ -884,8 +886,8 @@ Used in the interleaving of submissions and comments."
                                         (if (< i (length v)) (aref v i)))
                                       lvp indices)))
              (list (cdr earliest)
-                   (aif next-earliest
-                       (plist-get (car it) :created_utc))))
+                   (awhen next-earliest
+                     (plist-get (car it) :created_utc))))
       (cond ((null earliest)
              (setq earliest plst-idx))
             ((< (plist-get (car plst-idx) :created_utc)

@@ -35,15 +35,13 @@
 
 (Setup
  (custom-set-variables '(gnus-background-get-unread-articles nil)
-                       '(canlock-password "huh?"))
-)
+                       '(canlock-password "huh?")))
 
 (After
  (setq nnreddit--whoami nil))
 
 (Teardown
- (cleanup)
-)
+ (cleanup))
 
 (Fail
  (if noninteractive

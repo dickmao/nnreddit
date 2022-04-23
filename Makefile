@@ -22,7 +22,7 @@ lisp/nnreddit-pkg.el: nnreddit/VERSION lisp/nnreddit-pkg.el.in
 
 .PHONY: autoloads
 autoloads: lisp/nnreddit-pkg.el
-	$(EMACS) -Q --batch --eval "(package-initialize)" --eval "(package-generate-autoloads \"nnreddit\" \"./lisp\")"
+	cask emacs -Q --batch -l package --eval "(let ((v (format \"%s.%s\" emacs-major-version emacs-minor-version))) (custom-set-variables (backquote (package-user-dir ,(concat \".cask/\" v)))))" -f package-initialize --eval "(package-generate-autoloads \"nnreddit\" \"./lisp\")"
 
 README.rst: README.in.rst lisp/nnreddit.el
 	grep ';;' lisp/nnreddit.el \
@@ -89,7 +89,7 @@ test-install: test-install-vars
 	! ( $(EMACS) -Q --batch -L tests/test-install/package-build-$(PKBUILD) \
 	--eval "(require 'package-build)" \
 	--eval "(require 'subr-x)" \
-	--eval "(package-initialize)" \
+	-f package-initialize \
 	--eval "(add-to-list 'package-archives '(\"melpa\" . \"http://melpa.org/packages/\"))" \
 	--eval "(package-refresh-contents)" \
 	--eval "(setq rcp (package-recipe-lookup \"nnreddit\"))" \
@@ -106,7 +106,7 @@ test-install: test-install-vars
 
 .PHONY: test-venv
 test-venv: test-install
-	$(EMACS) -Q --batch --eval "(package-initialize)" \
+	$(EMACS) -Q --batch -f package-initialize \
 	                 --eval "(custom-set-variables (quote (gnus-verbose 8)))" \
 	                 --eval "(require (quote nnreddit))" \
 	                 --eval "nnreddit-venv"
@@ -164,7 +164,7 @@ dist: dist-clean
 
 .PHONY: install
 install: dist autoloads
-	$(EMACS) -Q --batch --eval "(package-initialize)" \
+	$(EMACS) -Q --batch -f package-initialize \
 	  --eval "(add-to-list 'package-archives '(\"melpa\" . \"http://melpa.org/packages/\"))" \
 	  --eval "(package-refresh-contents)" \
 	  --eval "(package-install-file (car (file-expand-wildcards \"dist/nnreddit*.tar\")))"

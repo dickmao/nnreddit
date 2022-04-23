@@ -43,13 +43,13 @@
                 continue)
       (error "Timeout: %s" predicate))))
 
-;; if yes-or-no-p isn't specially overridden, make it always "yes"
-(let ((original-yes-or-no-p (symbol-function 'yes-or-no-p)))
-  (add-function :around (symbol-function 'message-cancel-news)
-                (lambda (f &rest args)
-                  (if (not (eq (symbol-function 'yes-or-no-p) original-yes-or-no-p))
-                      (apply f args)
-                    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest args) t)))
-                      (apply f args))))))
+(mapc (lambda (sf)
+        (add-function
+         :around (symbol-function sf)
+         (lambda (f &rest args)
+           (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest args) t))
+                     ((symbol-function 'y-or-n-p) (lambda (&rest args) t)))
+             (apply f args)))))
+      '(message-cancel-news message-send-news))
 
 (provide 'nnreddit-test)
