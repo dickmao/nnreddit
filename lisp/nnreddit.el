@@ -862,6 +862,13 @@ BACKEND can be curl (defaults to `url-retrieve')."
                           (buffer-string)))
           (cons group article-number))))))
 
+(deffoo nnreddit-request-head (_id &optional _group _server)
+  "Demur.
+Since `gnus-summary-refer-article' calls
+`gnus-summary-select-article' on an on-demand retrieval,
+`nnreddit--get-body' won't cut it."
+  nil)
+
 (deffoo nnreddit-retrieve-headers (article-numbers &optional group server _fetch-old)
   (nnreddit--normalize-server)
   (nnreddit--with-group group
@@ -1321,6 +1328,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
 (add-to-list
  'gnus-parameters
  `("^nnreddit"
+   (gnus-refer-article-method 'current)
    (gnus-summary-make-false-root 'adopt)
    (gnus-cite-hide-absolute 5)
    (gnus-cite-hide-percentage 0)
