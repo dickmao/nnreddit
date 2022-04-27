@@ -93,7 +93,7 @@
                               (if (> (float-time (nth 5 (cdr cand)))
                                      (float-time (nth 5 (cdr sofar))))
                                   (setq sofar cand)))))
-          (find-file most-recent))))
+          (find-file-literally most-recent))))
 
 (When "^I wait \\([.0-9]+\\) seconds?$"
       (lambda (seconds)

@@ -87,7 +87,6 @@ Scenario: message-send-and-exit
   And I type "test baby test baby 123"
   And I press "M->"
   And I type "this is a test"
-  And I dump buffer
   And I press "C-c C-c"
   And I should be in buffer "*Summary nnreddit:PostPreview*"
   Then end recording "post"

@@ -1017,7 +1017,10 @@ relics of the 1990s."
                                      (file-name-directory nnreddit-el-dir)
                                    nnreddit-el-dir)))
                (python-shell-extra-pythonpaths (list nnreddit-py-dir))
-               (process-environment (python-shell-calculate-process-environment))
+               (process-environment
+                (funcall (if (fboundp 'python-shell--calculate-process-environment)
+                             (symbol-function 'python-shell--calculate-process-environment)
+                           (symbol-function 'python-shell-calculate-process-environment))))
                (python-executable (if nnreddit-venv
                                       (format "%s/bin/python" nnreddit-venv)
                                     (executable-find nnreddit-python-command)))
@@ -1262,13 +1265,15 @@ The built-in `gnus-gather-threads-by-references' is both."
          (error (error-message-string err))))))
   "In case of shr failures, dump original link.")
 
-(defsubst nnreddit--dense-time (time)
+(defsubst nnreddit--dense-time (time*)
   "Convert TIME to a floating point number.
-
 Written by John Wiegley (https://github.com/jwiegley/dot-emacs)."
-  (+ (* (car time) 65536.0)
-     (cadr time)
-     (/ (or (car (cdr (cdr time))) 0) 1000000.0)))
+  (let ((time (if (fboundp 'time-convert)
+                  (funcall #'time-convert time* 'list)
+                (identity time*))))
+    (+ (* (car time) 65536.0)
+       (cadr time)
+       (/ (or (car (cdr (cdr time))) 0) 1000000.0))))
 
 (defalias 'nnreddit--format-time-elapsed
   (lambda (header)
@@ -1277,7 +1282,7 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs)."
           (if (> (length date) 0)
               (let*
                   ((then (nnreddit--dense-time
-                          (apply 'encode-time (parse-time-string date))))
+                          (apply #'encode-time (parse-time-string date))))
                    (now (nnreddit--dense-time (current-time)))
                    (diff (- now then))
                    (str
