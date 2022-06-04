@@ -1275,54 +1275,56 @@ Written by John Wiegley (https://github.com/jwiegley/dot-emacs)."
        (cadr time)
        (/ (or (car (cdr (cdr time))) 0) 1000000.0))))
 
-(defun nnreddit--format-time-elapsed (header)
+(defalias 'nnreddit--format-time-elapsed
+  (lambda (header)
+    (condition-case nil
+        (let ((date (mail-header-date header)))
+          (if (> (length date) 0)
+              (let*
+                  ((then (nnreddit--dense-time
+                          (apply #'encode-time (parse-time-string date))))
+                   (now (nnreddit--dense-time (current-time)))
+                   (diff (- now then))
+                   (str
+                    (cond
+                     ((>= diff (* 86400.0 7.0 52.0))
+                      (if (>= diff (* 86400.0 7.0 52.0 10.0))
+                          (format "%3dY" (floor (/ diff (* 86400.0 7.0 52.0))))
+                        (format "%3.1fY" (/ diff (* 86400.0 7.0 52.0)))))
+                     ((>= diff (* 86400.0 30.0))
+                      (if (>= diff (* 86400.0 30.0 10.0))
+                          (format "%3dM" (floor (/ diff (* 86400.0 30.0))))
+                        (format "%3.1fM" (/ diff (* 86400.0 30.0)))))
+                     ((>= diff (* 86400.0 7.0))
+                      (if (>= diff (* 86400.0 7.0 10.0))
+                          (format "%3dw" (floor (/ diff (* 86400.0 7.0))))
+                        (format "%3.1fw" (/ diff (* 86400.0 7.0)))))
+                     ((>= diff 86400.0)
+                      (if (>= diff (* 86400.0 10.0))
+                          (format "%3dd" (floor (/ diff 86400.0)))
+                        (format "%3.1fd" (/ diff 86400.0))))
+                     ((>= diff 3600.0)
+                      (if (>= diff (* 3600.0 10.0))
+                          (format "%3dh" (floor (/ diff 3600.0)))
+                        (format "%3.1fh" (/ diff 3600.0))))
+                     ((>= diff 60.0)
+                      (if (>= diff (* 60.0 10.0))
+                          (format "%3dm" (floor (/ diff 60.0)))
+                        (format "%3.1fm" (/ diff 60.0))))
+                     (t
+                      (format "%3ds" (floor diff)))))
+                   (stripped
+                    (replace-regexp-in-string "\\.0" "" str)))
+                (concat (cond
+                         ((= 2 (length stripped)) "  ")
+                         ((= 3 (length stripped)) " ")
+                         (t ""))
+                        stripped))))
+      ;; print some spaces and pretend nothing happened.
+      (error "    ")))
   "Return time elapsed since HEADER was sent.
-Written by John Wiegley (https://github.com/jwiegley/dot-emacs)."
-  (condition-case err
-      (let ((date (mail-header-date header)))
-        (message "got here %S" date)
-        (when (> (length date) 0)
-          (let* ((then (nnreddit--dense-time
-                        (apply #'encode-time (parse-time-string date))))
-                 (now (nnreddit--dense-time (current-time)))
-                 (diff (- now then))
-                 (str
-                  (cond
-                   ((>= diff (* 86400.0 7.0 52.0))
-                    (if (>= diff (* 86400.0 7.0 52.0 10.0))
-                        (format "%3dY" (floor (/ diff (* 86400.0 7.0 52.0))))
-                      (format "%3.1fY" (/ diff (* 86400.0 7.0 52.0)))))
-                   ((>= diff (* 86400.0 30.0))
-                    (if (>= diff (* 86400.0 30.0 10.0))
-                        (format "%3dM" (floor (/ diff (* 86400.0 30.0))))
-                      (format "%3.1fM" (/ diff (* 86400.0 30.0)))))
-                   ((>= diff (* 86400.0 7.0))
-                    (if (>= diff (* 86400.0 7.0 10.0))
-                        (format "%3dw" (floor (/ diff (* 86400.0 7.0))))
-                      (format "%3.1fw" (/ diff (* 86400.0 7.0)))))
-                   ((>= diff 86400.0)
-                    (if (>= diff (* 86400.0 10.0))
-                        (format "%3dd" (floor (/ diff 86400.0)))
-                      (format "%3.1fd" (/ diff 86400.0))))
-                   ((>= diff 3600.0)
-                    (if (>= diff (* 3600.0 10.0))
-                        (format "%3dh" (floor (/ diff 3600.0)))
-                      (format "%3.1fh" (/ diff 3600.0))))
-                   ((>= diff 60.0)
-                    (if (>= diff (* 60.0 10.0))
-                        (format "%3dm" (floor (/ diff 60.0)))
-                      (format "%3.1fm" (/ diff 60.0))))
-                   (t
-                    (format "%3ds" (floor diff)))))
-                 (stripped
-                  (replace-regexp-in-string "\\.0" "" str)))
-            (concat (cond
-                     ((= 2 (length stripped)) "  ")
-                     ((= 3 (length stripped)) " ")
-                     (t ""))
-                    stripped))))
-    ;; print some spaces and pretend nothing happened.
-    (error (format "%S" err))))
+
+Written by John Wiegley (https://github.com/jwiegley/dot-emacs).")
 
 ;; Evade package-lint!
 (fset 'gnus-user-format-function-S
