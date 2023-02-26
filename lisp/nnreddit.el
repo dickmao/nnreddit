@@ -667,7 +667,7 @@ to PRAW yet again."
                (newsrc-mark-ranges-shifted
                 (mapcar (lambda (what-ranges)
                           (cl-case (car what-ranges)
-                            ('seen `(seen (1 . ,num-headers)))
+                            (seen `(seen (1 . ,num-headers)))
                             (t (cons (car what-ranges)
                                      (nnreddit--shift-ranges delta (cdr what-ranges))))))
                         newsrc-mark-ranges)))
