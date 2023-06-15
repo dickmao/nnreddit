@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 EMACS ?= $(shell which emacs)
 export PYTHON ?= python
 ifeq ($(shell expr $$($(PYTHON) --version 2>&1 | cut -d' ' -f2) \< 3),1)
@@ -7,6 +8,11 @@ SRC=$(shell cask files)
 PKBUILD=2.3
 ELCFILES = $(SRC:.el=.elc)
 CASK_DIR := $(shell EMACS=$(EMACS) cask package-directory || exit 1)
+export TEST_PYTHON ?= python
+ifeq ($(shell expr $$($(TEST_PYTHON) --version 2>&1 | cut -d'.' -f2) \< 9),0)
+$(error Set TEST_PYTHON to an older python3)
+endif
+
 
 .DEFAULT_GOAL := test-compile
 
@@ -140,19 +146,24 @@ test-run-interactive:
 
 .PHONY: test-unit
 test-unit:
-	PYTHON=$(PYTHON) cask exec ert-runner -L . -L tests tests/test*.el
+	PYTHON=$(TEST_PYTHON) cask exec ert-runner -L . -L tests tests/test*.el
 
 .PHONY: test
 test: test-compile test-unit test-int
 
 .PHONY: test-int
 test-int:
-	$(PYTHON) -m pip -q install --user -r requirements-dev.txt
-	$(PYTHON) -m pytest tests/test_oauth.py
-	rm -f tests/.newsrc.eld
-	PYTHON=$(PYTHON) cask exec ecukes --reporter magnars --tags "~@inbox"
-	rm -f tests/.newsrc.eld
-	PYTHON=$(PYTHON) cask exec ecukes --reporter magnars --tags "@inbox"
+	$(TEST_PYTHON) -m pip -q install --user venv
+	$(TEST_PYTHON) -m venv venv-nnreddit-test
+	( \
+	  source venv-nnreddit-test/bin/activate; \
+	  python -m pip -q install -r requirements-dev.txt; \
+	  python -m pytest tests/test_oauth.py; \
+	  rm -f tests/.newsrc.eld; \
+	  cask exec ecukes --reporter magnars --tags "~@inbox"; \
+	  rm -f tests/.newsrc.eld; \
+	  cask exec ecukes --reporter magnars --tags "@inbox"; \
+	)
 
 .PHONY: dist-clean
 dist-clean:

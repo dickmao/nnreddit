@@ -7,8 +7,8 @@ python -m nnreddit
 
 import os
 import sys
-import jsonrpyc
 import argparse
+import jsonrpyc
 
 from .authenticated_reddit import AuthenticatedReddit
 
@@ -20,7 +20,7 @@ args = parser.parse_args()
 stdin = sys.stdin
 stdout = sys.stdout
 if __name__ != "__main__":
-    sys.stdout = sys.stderr = open(os.devnull, "w")
+    sys.stdout = sys.stderr = open(os.devnull, mode="w", encoding="utf-8")
 
 jsonrpyc.RPC(target=AuthenticatedReddit(check_for_updates=False,
                                         log_prefix=args.log,

@@ -4,16 +4,7 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
-import rtv.config
 import os
-
-rtv.config.TEMPLATES = os.path.join(os.path.dirname(__file__), 'templates')
-rtv.config.DEFAULT_CONFIG = os.path.join(rtv.config.TEMPLATES, 'rtv.cfg')
-rtv.config.DEFAULT_MAILCAP = os.path.join(rtv.config.TEMPLATES, 'mailcap')
-rtv.config.HISTORY = os.path.join(rtv.config.XDG_DATA_HOME, 'nnreddit', 'history.log')
-rtv.config.TOKEN = os.path.join(rtv.config.XDG_DATA_HOME, 'nnreddit', 'refresh-token')
-
-import praw
 import re
 import random
 import webbrowser
@@ -23,12 +14,20 @@ import sys
 import logging
 from time import time
 import datetime
+from multiprocessing import Process
+import rtv.config
 
+rtv.config.TEMPLATES = os.path.join(os.path.dirname(__file__), 'templates')
+rtv.config.DEFAULT_CONFIG = os.path.join(rtv.config.TEMPLATES, 'rtv.cfg')
+rtv.config.DEFAULT_MAILCAP = os.path.join(rtv.config.TEMPLATES, 'mailcap')
+rtv.config.HISTORY = os.path.join(rtv.config.XDG_DATA_HOME, 'nnreddit', 'history.log')
+rtv.config.TOKEN = os.path.join(rtv.config.XDG_DATA_HOME, 'nnreddit', 'refresh-token')
+
+import praw
 from praw import Reddit
 from prawcore.sessions import session
 from prawcore import Authorizer
 from rtv.oauth import OAuthHTTPServer, OAuthHandler
-from multiprocessing import Process
 from rtv.exceptions import BrowserError
 from rtv import docs
 
@@ -77,8 +76,8 @@ class AuthenticatedReddit(Reddit):
                             datefmt="%Y-%m-%d %H:%M:%S")
         log_prefix = kwargs.pop('log_prefix', None)
         if log_prefix:
-            ts = datetime.datetime.fromtimestamp(time()).strftime('%Y%m%d.%H%M%S')
-            logging.getLogger().addHandler(logging.FileHandler(log_prefix + ts))
+            stamp = datetime.datetime.fromtimestamp(time()).strftime('%Y%m%d.%H%M%S')
+            logging.getLogger().addHandler(logging.FileHandler(log_prefix + stamp))
 
         localhost = kwargs.pop('localhost', '127.0.0.1')
         default_kwargs = {
@@ -126,16 +125,16 @@ class AuthenticatedReddit(Reddit):
             if cfg.token_file == "/dev/null":
                 cfg.refresh_token = None
             else:
-                p = Process(target=self.open_url_silent, args=(url,))
-                p.start()
+                proc = Process(target=self.open_url_silent, args=(url,))
+                proc.start()
                 try:
-                    p.join(7)
-                    if p.is_alive():
+                    proc.join(7)
+                    if proc.is_alive():
                         raise BrowserError(
                             'Timeout waiting for browser to open')
                 finally:
                     try:
-                        p.terminate()
+                        proc.terminate()
                     except OSError:
                         pass
                 server = OAuthHTTPServer(('', cfg.config['redirect_port']), OAuthHandler)
@@ -177,9 +176,9 @@ class AuthenticatedReddit(Reddit):
         recording_end(cassette)
         return True
 
-    def random_subreddit(self, nsfw=False):
-        sr = super().random_subreddit(nsfw)
-        return sr.display_name
+    def random_subreddit(self, *, nsfw: bool = False):
+        above = super().random_subreddit()
+        return above.display_name
 
     def search(self, query, **generator_kwargs):
         return [ x.display_name for x in self.subreddits.search(query, **generator_kwargs) ]
@@ -239,14 +238,14 @@ class AuthenticatedReddit(Reddit):
         if display_name not in self._bodies:
             self._bodies[display_name] = {}
         dicts = self.collect_dicts(self._stream_comm.get(display_name))
-        for d in dicts:
-            if 'body_html' in d:
-                self._bodies[display_name][d['id']] = d['body_html']
+        for dic in dicts:
+            if 'body_html' in dic:
+                self._bodies[display_name][dic['id']] = dic['body_html']
             else:
-                self._bodies[display_name][d['id']] = 'Wow, such empty'
-            for k in list(d):
+                self._bodies[display_name][dic['id']] = 'Wow, such empty'
+            for k in list(dic):
                 if k.startswith('body'):
-                    del d[k]
+                    del dic[k]
         return dicts
 
     def vote(self, name, vote):
@@ -265,8 +264,8 @@ class AuthenticatedReddit(Reddit):
                 votable.downvote()
             else:
                 votable.upvote()
-        except AttributeError as e:
-            raise AttributeError('{} un-votable: {}'.format(name, str(e))) from e
+        except AttributeError as exc:
+            raise AttributeError('{} un-votable: {}'.format(name, str(exc))) from exc
 
     def body(self, display_name, name):
         (mytype, myid) = name.split("_", 1)
@@ -284,7 +283,9 @@ class AuthenticatedReddit(Reddit):
 
     def canonical_spelling(self, display_name):
         lazy = self.subreddit(display_name)
+        # pragma pylint: disable=protected-access
         lazy._fetch()
+        # pragma pylint: enable=protected-access
         return lazy.display_name
 
     def submissions(self, display_name):
@@ -294,19 +295,19 @@ class AuthenticatedReddit(Reddit):
         if display_name not in self._bodies:
             self._bodies[display_name] = {}
         dicts = self.collect_dicts(self._stream_subm.get(display_name))
-        for d in dicts:
-            if 'selftext_html' in d:
-                self._bodies[display_name][d['id']] = d['selftext_html']
-            elif 'url' in d:
-                self._bodies[display_name][d['id']] \
+        for dic in dicts:
+            if 'selftext_html' in dic:
+                self._bodies[display_name][dic['id']] = dic['selftext_html']
+            elif 'url' in dic:
+                self._bodies[display_name][dic['id']] \
                     = ''.join(['<div>', '<p>',
-                               '<a href="{0}">{0}</a>'.format(d.get('url')),
+                               '<a href="{0}">{0}</a>'.format(dic.get('url')),
                                '</div>'])
             else:
-                self._bodies[display_name][d['id']] = 'Wow, such empty'
-            for k in list(d):
+                self._bodies[display_name][dic['id']] = 'Wow, such empty'
+            for k in list(dic):
                 if k.startswith('selftext'):
-                    del d[k]
+                    del dic[k]
         return dicts
 
     def user_subreddits(self):
@@ -321,14 +322,14 @@ class AuthenticatedReddit(Reddit):
         if inbox_name not in self._bodies:
             self._bodies[inbox_name] = {}
         dicts = self.collect_dicts(self._stream_inbox)
-        # TODO: direct messages, type: 'unknown', subject: 'foo', was_comment: False
-        dicts = [d for d in dicts if d.get('type') == 'comment_reply' or d.get('type') == 'post_reply']
-        for d in dicts:
-            if 'body_html' in d:
-                self._bodies[inbox_name][d['id']] = d['body_html']
+        dicts = [d for d in dicts if d.get('type') == 'comment_reply' or
+                 d.get('type') == 'post_reply']
+        for dic in dicts:
+            if 'body_html' in dic:
+                self._bodies[inbox_name][dic['id']] = dic['body_html']
             else:
-                self._bodies[inbox_name][d['id']] = 'Wow, such empty'
-            for k in list(d):
+                self._bodies[inbox_name][dic['id']] = 'Wow, such empty'
+            for k in list(dic):
                 if k.startswith('body'):
-                    del d[k]
+                    del dic[k]
         return dicts

@@ -25,9 +25,10 @@
      ,@forms))
 
 (defun cleanup ()
-  (let* ((newsrc-file (if (bound-and-true-p gnus-current-startup-file)
-			  gnus-current-startup-file
-			gnus-dot-newsrc))
+  (let* ((newsrc-file (if (boundp 'gnus-current-startup-file)
+			  (symbol-value 'gnus-current-startup-file)
+                        (when (boundp 'gnus-dot-newsrc)
+			  (symbol-value 'gnus-dot-newsrc))))
          (quick-file (concat newsrc-file ".eld")))
     (when (file-exists-p quick-file)
       (message "Deleting %s" quick-file)
