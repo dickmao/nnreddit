@@ -57,7 +57,7 @@
 (require 'url-http)
 (require 'gnus-topic)
 
-(defvar-local nnreddit--groups nil
+(defvar nnreddit--groups nil
   "Someone asked to avoid re-requesting joined subreddits.")
 
 (nnoo-declare nnreddit)
@@ -465,9 +465,7 @@ So we cannot use `nnreddit--gate'."
           (new-subbed-p (<= level gnus-level-subscribed)))
       (unless (eq old-subbed-p new-subbed-p)
         ;; afaict, praw post() doesn't return status
-        (with-current-buffer nntp-server-buffer
-          (when (local-variable-p 'nnreddit--groups)
-            (makunbound 'nnreddit--groups)))
+        (setq nnreddit--groups nil)
         (if new-subbed-p
             (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name group))
           (nnreddit-rpc-call nil nil "unsubscribe" (gnus-group-real-name group)))))))
@@ -937,12 +935,11 @@ Used in the interleaving of submissions and comments."
 (deffoo nnreddit-request-list (&optional server)
   (nnreddit--normalize-server)
   (with-current-buffer nntp-server-buffer
-    (let ((groups (if (local-variable-p 'nnreddit--groups)
-                      (symbol-value 'nnreddit--groups)
-                    (setq nnreddit--groups
-                          (append (nnreddit-rpc-call server nil "user_subreddits")
-                                  (nnreddit--test-supports-inbox
-                                   (list (nnreddit--inbox-realname)))))))
+    (let ((groups (or nnreddit--groups
+                      (setq nnreddit--groups
+                            (append (nnreddit-rpc-call server nil "user_subreddits")
+                                    (nnreddit--test-supports-inbox
+                                     (list (nnreddit--inbox-realname)))))))
           (newsrc (cl-mapcan (lambda (info)
                                (when (and (equal "nnreddit:" (gnus-info-method info))
                                           (<= (gnus-info-level info)
