@@ -1,5 +1,5 @@
 (define-package "nnreddit"
-  "0.2.0"
+  "0.2.1"
   "Gnus Backend For Reddit"
   '((emacs "25.1")
     (request "0.3.3")
