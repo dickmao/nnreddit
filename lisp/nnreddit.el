@@ -931,9 +931,12 @@ Used in the interleaving of submissions and comments."
 (deffoo nnreddit-request-list (&optional server)
   (nnreddit--normalize-server)
   (with-current-buffer nntp-server-buffer
-    (let ((groups (append (nnreddit-rpc-call server nil "user_subreddits")
-                          (nnreddit--test-supports-inbox
-                           (list (nnreddit--inbox-realname)))))
+    (let ((groups (if (local-variable-p 'nnreddit--groups)
+                      (symbol-value 'nnreddit--groups)
+                    (setq-local nnreddit--groups
+                                (append (nnreddit-rpc-call server nil "user_subreddits")
+                                        (nnreddit--test-supports-inbox
+                                         (list (nnreddit--inbox-realname)))))))
           (newsrc (cl-mapcan (lambda (info)
                                (when (and (equal "nnreddit:" (gnus-info-method info))
                                           (<= (gnus-info-level info)
