@@ -13,7 +13,6 @@ ifeq ($(shell expr $$($(TEST_PYTHON) --version 2>&1 | cut -d'.' -f2) \< 9),0)
 $(error Set TEST_PYTHON to an older python3)
 endif
 
-
 .DEFAULT_GOAL := test-compile
 
 .PHONY: cask
@@ -153,7 +152,6 @@ test: test-compile test-unit test-int
 
 .PHONY: test-int
 test-int:
-	$(TEST_PYTHON) -m pip -q install --user venv
 	$(TEST_PYTHON) -m venv venv-nnreddit-test
 	( \
 	  source venv-nnreddit-test/bin/activate; \

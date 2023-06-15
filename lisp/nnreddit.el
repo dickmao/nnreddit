@@ -57,6 +57,9 @@
 (require 'url-http)
 (require 'gnus-topic)
 
+(defvar-local nnreddit--groups nil
+  "Someone asked to avoid re-requesting joined subreddits.")
+
 (nnoo-declare nnreddit)
 
 (eval-when-compile
@@ -936,10 +939,10 @@ Used in the interleaving of submissions and comments."
   (with-current-buffer nntp-server-buffer
     (let ((groups (if (local-variable-p 'nnreddit--groups)
                       (symbol-value 'nnreddit--groups)
-                    (setq-local nnreddit--groups
-                                (append (nnreddit-rpc-call server nil "user_subreddits")
-                                        (nnreddit--test-supports-inbox
-                                         (list (nnreddit--inbox-realname)))))))
+                    (setq nnreddit--groups
+                          (append (nnreddit-rpc-call server nil "user_subreddits")
+                                  (nnreddit--test-supports-inbox
+                                   (list (nnreddit--inbox-realname)))))))
           (newsrc (cl-mapcan (lambda (info)
                                (when (and (equal "nnreddit:" (gnus-info-method info))
                                           (<= (gnus-info-level info)
