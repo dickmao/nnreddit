@@ -462,6 +462,9 @@ So we cannot use `nnreddit--gate'."
           (new-subbed-p (<= level gnus-level-subscribed)))
       (unless (eq old-subbed-p new-subbed-p)
         ;; afaict, praw post() doesn't return status
+        (with-current-buffer nntp-server-buffer
+          (when (local-variable-p 'nnreddit--groups)
+            (makunbound 'nnreddit--groups)))
         (if new-subbed-p
             (nnreddit-rpc-call nil nil "subscribe" (gnus-group-real-name group))
           (nnreddit-rpc-call nil nil "unsubscribe" (gnus-group-real-name group)))))))
