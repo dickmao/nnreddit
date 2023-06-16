@@ -43,10 +43,19 @@ clean:
 	rm -f tests/log/*
 	rm -rf tests/test-install
 
-.PHONY: test-compile
-test-compile: cask autoloads
-	$(PYTHON) -m pip -q install --user pylint pytest
+
+.PHONY: pylint
+ifeq ($(shell expr $$($(PYTHON) --version 2>&1 | cut -d'.' -f2) \> 9),0)
+pylint:
+	$(PYTHON) -m pip -q install --user pylint
 	$(PYTHON) -m pylint nnreddit --rcfile=nnreddit/pylintrc
+else
+pylint:
+	@echo forgoing pylint
+endif
+
+.PHONY: test-compile
+test-compile: cask autoloads pylint
 	sh -e tools/package-lint.sh lisp/nnreddit.el
 	! (cask eval "(let ((byte-compile-error-on-warn t)) (cask-cli/build))" 2>&1 | egrep -a "(Warning|Error):")
 	cask clean-elc
