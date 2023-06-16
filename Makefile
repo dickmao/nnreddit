@@ -45,7 +45,7 @@ clean:
 
 
 .PHONY: pylint
-ifeq ($(shell expr $$($(PYTHON) --version 2>&1 | cut -d'.' -f2) \> 9),0)
+ifeq ($(shell expr $$($(PYTHON) --version 2>&1 | cut -d'.' -f2) \> 9),1)
 pylint:
 	$(PYTHON) -m pip -q install --user pylint
 	$(PYTHON) -m pylint nnreddit --rcfile=nnreddit/pylintrc
