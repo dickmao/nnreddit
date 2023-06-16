@@ -81,8 +81,8 @@ test-install-vars:
 	git show -s --format=%s $(GITHUB_COMMIT)
 	git show -s --format=%s $(GITHUB_SHA)
 
-.PHONY: test-install
-test-install: test-install-vars
+.PHONY: test-install-defunct
+test-install-defunct: test-install-vars
 	mkdir -p tests/test-install
 	if [ ! -s "tests/test-install/$(PKBUILD).tar.gz" ] ; then \
 	  cd tests/test-install ; curl -sLOk https://github.com/melpa/package-build/archive/$(PKBUILD).tar.gz ; fi
@@ -110,7 +110,7 @@ test-install: test-install-vars
 	--eval "(package-install-file (car (file-expand-wildcards (concat package-build-archive-dir \"nnreddit*.tar\"))))" 2>&1 | egrep -ia "error: |fatal" )
 
 .PHONY: test-venv
-test-venv: test-install
+test-venv: test-install-defunct
 	$(EMACS) -Q --batch -f package-initialize \
 	                 --eval "(custom-set-variables (quote (gnus-verbose 8)))" \
 	                 --eval "(require (quote nnreddit))" \
