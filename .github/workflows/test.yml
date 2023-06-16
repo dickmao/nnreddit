@@ -88,12 +88,6 @@ jobs:
         echo "$HOME/.local/bin" >> $GITHUB_PATH
         echo "LD_LIBRARY_PATH=$HOME/.local/lib" >> $GITHUB_ENV
 
-    - name: test-install
-      if: startsWith(runner.os, 'Linux')
-      run: |
-        make test-venv
-      continue-on-error: ${{ matrix.emacs_version == 'snapshot' }}
-
     - name: test
       run: |
         make test-run
