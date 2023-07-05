@@ -1,4 +1,0 @@
-(require 'nnreddit)
-
-
-(provide 'test)

@@ -2,34 +2,13 @@
 
 # The following is a derivative work of
 # https://github.com/michael-lazar/rtv
-# whose copyright and license are copied here:
-
-# The MIT License (MIT)
-#
-# Copyright (c) 2015 michael-lazar
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# license under MIT License.
 
 from __future__ import unicode_literals
 
 import os
 import logging
+import json
 from functools import partial
 
 import pytest
@@ -44,7 +23,7 @@ except OSError:
     if not os.path.isdir(os.environ["XDG_DATA_HOME"]):
         raise
 
-from nnreddit.AuthenticatedReddit import AuthenticatedReddit
+from nnreddit.authenticated_reddit import AuthenticatedReddit
 from rtv.config import TOKEN
 
 try:
@@ -63,8 +42,10 @@ for name in ['vcr.matchers', 'vcr.stubs']:
     logging.getLogger(name).disabled = True
 
 def pytest_addoption(parser):
+    super_secret = os.path.join(os.path.dirname(TOKEN), 'super-secret-refresh-token')
     parser.addoption('--record-mode', dest='record_mode', default='none')
-    parser.addoption('--token-file', dest='token_file', default=TOKEN)
+    parser.addoption('--token-file', dest='token_file',
+                     default=(super_secret if os.path.exists(super_secret) else TOKEN))
 
 @pytest.fixture(scope='session')
 def vcr(request):
@@ -87,6 +68,15 @@ def vcr(request):
     if not os.path.exists(cassette_dir):
         os.makedirs(cassette_dir)
 
+    def scrub(tokens, replacement=''):
+        def before_record_response(response):
+            dikt = json.loads(response['body']['string'].decode('utf-8'))
+            for token in tokens:
+                dikt[token] = replacement
+            response['body']['string'] = json.dumps(dikt)
+            return response
+        return before_record_response
+
     # https://github.com/kevin1024/vcrpy/pull/196
     vcr = VCR(
         record_mode=request.config.option.record_mode,
@@ -94,6 +84,7 @@ def vcr(request):
         filter_post_data_parameters=[('refresh_token', '**********'),
                                      ('code', '**********')],
         match_on=['method', 'uri_with_query', 'auth', 'body'],
+        before_record_response=scrub(['access_token', 'refresh_token'], '**********'),
         cassette_library_dir=cassette_dir)
     vcr.register_matcher('auth', auth_matcher)
     vcr.register_matcher('uri_with_query', uri_with_query_matcher)
@@ -112,11 +103,17 @@ def reddit(vcr, request):
 
     with vcr.use_cassette(cassette_name):
         logdir = os.path.join(os.path.dirname(__file__), 'log')
+        try:
+            os.makedirs(logdir)
+        except OSError:
+            if not os.path.isdir(logdir):
+                raise
         kwargs = { 'token_file': ( \
                                    mkstemp(dir='/var/tmp')[1]
                                    if recording else request.config.option.token_file ),
                    'history_file': mkstemp(dir='/var/tmp')[1],
-                   'log_prefix': os.path.join(logdir, 'test_vcr.')
+                   'log_prefix': os.path.join(logdir, 'test_vcr.'),
+                   'check_for_updates': False
         }
         reddit = AuthenticatedReddit(decode_html_entities=False,
                                      disable_update_check=True,

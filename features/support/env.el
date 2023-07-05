@@ -1,42 +1,53 @@
 (require 'ert)
+(require 'cl-lib)
 (require 'espuds)
 (require 'f)
-
-(with-eval-after-load "python"
-  (setq python-indent-guess-indent-offset-verbose nil))
 
 (let* ((support-path (f-dirname load-file-name))
        (root-path (f-parent (f-parent support-path))))
   (add-to-list 'load-path (concat root-path "/lisp"))
-  (add-to-list 'load-path (concat root-path "/tests"))
-  (custom-set-variables
-   '(gnus-before-startup-hook (quote (toggle-debug-on-error)))
-   '(nnreddit-use-virtualenv nil)
-   '(gnus-read-active-file nil)
-   `(gnus-home-directory ,(concat root-path "/tests"))
-   '(gnus-use-dribble-file nil)
-   '(gnus-read-newsrc-file nil)
-   '(gnus-save-killed-list nil)
-   '(gnus-save-newsrc-file nil)
-   '(gnus-secondary-select-methods (quote ((nnreddit ""))))
-   '(gnus-select-method (quote (nnnil)))
-   '(gnus-verbose 8)))
+  (add-to-list 'load-path (concat root-path "/tests")))
 
-(require 'test)
+(require 'nnreddit-test)
 
-(defun after-scenario ()
-  )
+(defvar nnreddit--current-feature)
+(add-hook 'ecukes-reporter-before-feature-hook
+          (lambda (feature)
+            (-when-let* ((intro (ecukes-feature-intro feature))
+                         (header (ecukes-intro-header intro)))
+              (setq nnreddit--current-feature header))))
+
+(defmacro if-demote (demote &rest forms)
+  (declare (debug t) (indent 1))
+  `(if ,demote
+       (with-demoted-errors "demoted: %s"
+         ,@forms)
+     ,@forms))
+
+(defun cleanup ()
+  (let* ((newsrc-file (if (boundp 'gnus-current-startup-file)
+			  (symbol-value 'gnus-current-startup-file)
+                        (when (boundp 'gnus-dot-newsrc)
+			  (symbol-value 'gnus-dot-newsrc))))
+         (quick-file (concat newsrc-file ".eld")))
+    (when (file-exists-p quick-file)
+      (message "Deleting %s" quick-file)
+      (delete-file quick-file))))
 
 (Setup
- )
+ (custom-set-variables '(gnus-background-get-unread-articles nil)
+                       '(canlock-password "huh?")))
 
 (After
- (after-scenario))
+ (setq nnreddit--whoami nil))
 
 (Teardown
- )
+ (cleanup))
 
 (Fail
  (if noninteractive
-     (after-scenario)
+     (with-demoted-errors "demote: %s"
+       (Then "end recordings")
+       (Teardown))
+   (backtrace)
    (keyboard-quit))) ;; useful to prevent emacs from quitting
