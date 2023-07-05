@@ -24,6 +24,12 @@ A Gnus backend for Reddit.
 .. |---| unicode:: U+2014  .. em dash, trimming surrounding whitespace
    :trim:
 
+We Moved to Gitawonk
+====================
+https://live.gitawonk.com/dickmao/nnreddit.git
+
+Git paid, not played.
+
 Install
 =======
 **As of 06 July 2021, authentication behavior at Reddit changed** such that nnreddit versions previous to 0.2.0 no longer work.  Delete ``$HOME/.local/share/nnreddit/refresh-token``, and install the latest nnreddit.
