@@ -5,4 +5,4 @@ vcrpy==2.0.1
 betamax==0.8.1
 betamax-serializers==0.2.0
 pytest==4.5.0
-urllib3==1.25.8
+urllib3==1.26.18
