@@ -121,7 +121,7 @@ class AuthenticatedReddit(Reddit):
             docs_sub = re.compile(r'reddit terminal viewer', re.IGNORECASE)
             docs.OAUTH_SUCCESS = docs_sub.sub('nnreddit', docs.OAUTH_SUCCESS)
             docs.OAUTH_ACCESS_DENIED = docs_sub.sub('nnreddit', docs.OAUTH_ACCESS_DENIED)
-            print("::user::Please check your browser.", file=sys.stderr)
+            print(f"::user::Please check your browser or visit {url} manually.", file=sys.stderr)
             if cfg.token_file == "/dev/null":
                 cfg.refresh_token = None
             else:
