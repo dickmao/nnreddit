@@ -1,0 +1,40 @@
+interactions:
+- request:
+    body: !!python/unicode code=**********&grant_type=authorization_code&redirect_uri=http%3A%2F%2F127.0.0.1%3A17973
+    headers:
+      Accept: ['*/*']
+      Accept-Encoding: ['gzip, deflate']
+      !!python/unicode Authorization: [!!python/unicode '**********']
+      Connection: [keep-alive]
+      Content-Length: ['106']
+      Content-Type: [application/x-www-form-urlencoded]
+      User-Agent: ['Linux:nnreddit:0.1.0 PRAW/6.2.0 PRAW/6.2.0 prawcore/1.0.1']
+    method: POST
+    uri: https://www.reddit.com/api/v1/access_token
+  response:
+    body: {string: !!python/unicode '{"access_token": "**********", "token_type":
+        "bearer", "expires_in": 3600, "refresh_token": "**********", "scope": "edit
+        history identity mysubreddits privatemessages read report save submit subscribe
+        vote"}'}
+    headers:
+      accept-ranges: [bytes]
+      cache-control: ['max-age=0, must-revalidate']
+      connection: [keep-alive]
+      content-length: ['267']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Fri, 07 Jun 2019 04:38:25 GMT']
+      server: [snooserv]
+      set-cookie: [edgebucket=y1FPYeim4TI9gnt5xY; Domain=reddit.com; Max-Age=63071999;
+          Path=/;  secure]
+      strict-transport-security: [max-age=15552000; includeSubDomains; preload]
+      via: [1.1 varnish]
+      x-cache: [MISS]
+      x-cache-hits: ['0']
+      x-content-type-options: [nosniff]
+      x-frame-options: [SAMEORIGIN]
+      x-moose: [majestic]
+      x-served-by: [cache-ewr18125-EWR]
+      x-timer: ['S1559882305.241736,VS0,VE62']
+      x-xss-protection: [1; mode=block]
+    status: {code: 200, message: OK}
+version: 1
