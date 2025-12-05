@@ -29,6 +29,6 @@ setup(
         "jsonrpyc>=1.1.0",
         "rtv>=1.26.0",
         "praw>=7.3.0",
-        "urllib3<=2.2.3",
+        "urllib3<=2.6.0",
     ],
 )
